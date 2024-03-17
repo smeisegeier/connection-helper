@@ -19,14 +19,8 @@ from connection_helper import sql
 ## example
 
 ```python
-# load sample dataset from seaborn
-import seaborn as sb
-df = sb.load_dataset('taxis')
 ```
 
-```python
-
-```
 
 ## why use connection-helper
 
@@ -35,6 +29,7 @@ df = sb.load_dataset('taxis')
 - `sql` is added as convenience wrapper for retrieving data from sql databases
   - `connect_sql` get data from `['mssql', 'sqlite','postgres']`
 
-- `cpt` 🚧 cryptographic tools
+- `cpt` cryptographic tools
+  - ⚠️ still experimental
 
 ## dependencies
