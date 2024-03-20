@@ -1,13 +1,9 @@
-from dotenv import load_dotenv, find_dotenv
 import gnupg as gnu
 import os
-
-PASSPHRASE_TEST = "0000"
 
 # * create object
 gpg = gnu.GPG()
 
-path_env = find_dotenv()
 
 def pgp_generate_key(
     name_email: str = "test@example.com",
@@ -15,7 +11,7 @@ def pgp_generate_key(
     name_real: str = "slim shady",
     name_comment: str = "this is a test key",
     key_type: str = "RSA",
-    passphrase: str = PASSPHRASE_TEST,
+    passphrase: str = None,
 ) -> object:
     """
     Generate a PGP key with the given parameters.
@@ -72,7 +68,7 @@ def pgp_export_public_key(key: object, output_file_path: str = None) -> str:
 
 
 def pgp_export_private_key(
-    key: object, passphrase: str = PASSPHRASE_TEST
+    key: object, passphrase: str = None,
 ) -> str:
     """
     Export a private key from the given key object.
@@ -173,11 +169,6 @@ def pgp_decrypt(
     Returns:
     - str: The decrypted message as a string
     """
-    if path_env:
-        passphrase = os.environ.get("KEY_PIN")
-        print("🔓 passphrase taken from .env")
-    if not passphrase:
-        print("❌ no passphrase to encrypt")
 
     if message_file_path:
         with open(message_file_path) as f:
@@ -201,6 +192,19 @@ def pgp_decrypt(
 
 
 def pgp_find_key(key_id: str, check_private: bool = False) -> str:
+    """
+    Finds a PGP key by its key ID. Either key id or fingerprint must be provided.
+
+    Args:
+        key_id (str): The key ID to search for. Must be at least 6 characters long.
+        check_private (bool, optional): Whether to search for private keys. Defaults to False.
+
+    Returns:
+        str or None: The key ID if found, or None if not found.
+
+    Raises:
+        None
+    """
     if len(key_id) < 8:
         print("❌ key_id must be at least 6 characters long")
         return None
@@ -221,5 +225,3 @@ def pgp_find_key(key_id: str, check_private: bool = False) -> str:
     else:
         print("❌ key not found")
         return None
-    
-    

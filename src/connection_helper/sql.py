@@ -37,8 +37,6 @@ def connect_sql(
                     dbms='postgres',
                     ensure_db_exists=False
                 )
-        - mssql
-            - sqlalchemy nust be <v2 to write -> sql
     
     """
 
