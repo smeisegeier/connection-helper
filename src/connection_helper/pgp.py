@@ -3,11 +3,11 @@ import gnupg as gnu
 import os
 
 PASSPHRASE_TEST = "0000"
-PRIVATE_KEY_NAME = "PGP_PRIVATE_KEY"
 
 # * create object
 gpg = gnu.GPG()
 
+path_env = find_dotenv()
 
 def pgp_generate_key(
     name_email: str = "test@example.com",
@@ -110,9 +110,10 @@ def pgp_import_key(key: str, key_file_path: str=None) -> object:
     return result.results
 
 def pgp_encrypt(
-    message: str,
     recipient_key_id_list: str | list[str],
-    passphrase: str = PASSPHRASE_TEST,
+    message: str= None,
+    message_file_path: str = None,
+    # passphrase: str = None,
     output_file_path: str = None,
 ) -> str:
     """
@@ -127,6 +128,12 @@ def pgp_encrypt(
     Returns:
         str: The encrypted message.
     """
+    if message_file_path:
+        with open(message_file_path) as f:
+            message = f.read()
+    if not message:
+        print("❌ no message or message file to encrypt")
+        return None
 
     if not isinstance(recipient_key_id_list, list):
         recipient_key_id_list = [recipient_key_id_list]
@@ -134,7 +141,7 @@ def pgp_encrypt(
     result = gpg.encrypt(
         data=message,
         recipients=recipient_key_id_list,
-        passphrase=passphrase,
+        passphrase=None,
         always_trust=True,  # ! if false, keys trust must be ultimate
     )
 
@@ -152,7 +159,7 @@ def pgp_encrypt(
 def pgp_decrypt(
     message: str = None,
     message_file_path: str = None,
-    passphrase: str = PASSPHRASE_TEST,
+    passphrase: str = None,
 ) -> str:
     """
     A function to decrypt a PGP message. Decrypts the provided message using a passphrase and returns the decrypted message as a string.
@@ -166,18 +173,23 @@ def pgp_decrypt(
     Returns:
     - str: The decrypted message as a string
     """
+    if path_env:
+        passphrase = os.environ.get("KEY_PIN")
+        print("🔓 passphrase taken from .env")
+    if not passphrase:
+        print("❌ no passphrase to encrypt")
 
     if message_file_path:
         with open(message_file_path) as f:
             message = f.read()
-
     if not message:
         print("❌ no message or message file to decrypt")
         return None
 
     # * decrypt using secret key
     orig = gpg.decrypt(message, 
-                    passphrase=passphrase, 
+                    # passphrase=passphrase, 
+                    passphrase=None,
                     always_trust=False,
                 )
 
@@ -186,3 +198,28 @@ def pgp_decrypt(
     print(out)
 
     return orig
+
+
+def pgp_find_key(key_id: str, check_private: bool = False) -> str:
+    if len(key_id) < 8:
+        print("❌ key_id must be at least 6 characters long")
+        return None
+    
+    keys=gpg.list_keys(check_private)
+    key_ids=[key['keyid'] for key in keys]
+    key_prints = [key['fingerprint'] for key in keys]
+    
+    key_ids_match = [item for item in key_ids if key_id in item]
+    key_prints_match = [item for item in key_prints if key_id in item]
+    
+    if key_ids_match:
+        print(f"✅ key found: {key_ids_match}")
+        return key_ids_match
+    elif key_prints_match:
+        print(f"✅ key found: {key_prints_match}")
+        return key_prints_match
+    else:
+        print("❌ key not found")
+        return None
+    
+    
