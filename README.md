@@ -21,7 +21,6 @@ from connection_helper import sql
 ```python
 ```
 
-
 ## why use connection-helper
 
 `connection-helper` bundles some packages for connecting to sql databases
@@ -29,7 +28,7 @@ from connection_helper import sql
 - `sql` is added as convenience wrapper for retrieving data from sql databases
   - `connect_sql` get data from `['mssql', 'sqlite','postgres']`
 
-- `cpt` cryptographic tools
+- `cpt` cryptographic tools adapted from `python-gnupg`
   - ⚠️ still experimental
 
 ## dependencies

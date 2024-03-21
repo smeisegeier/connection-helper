@@ -4,6 +4,8 @@ import os
 # * create object
 gpg = gnu.GPG()
 
+def _get_success_icon(success: bool) -> str:
+    return "✅" if success else "❌"
 
 def pgp_generate_key(
     name_email: str = "test@example.com",
@@ -46,11 +48,11 @@ def pgp_generate_key(
 def pgp_export_public_key(key: object, output_file_path: str = None) -> str:
     """
     A function to export a public key from an object id.
-    
+
     Parameters:
         key (object): The object id from which the public key will be exported.
         output_file_path (str, optional): The file path where the public key will be saved. Defaults to None.
-    
+
     Returns:
         str: The exported public key.
     """
@@ -59,7 +61,7 @@ def pgp_export_public_key(key: object, output_file_path: str = None) -> str:
 
     # * print public key to have copyable text
     print(public_key)
-    
+
     if output_file_path:
         with open(output_file_path, "w") as f:
             f.write(public_key)
@@ -68,7 +70,8 @@ def pgp_export_public_key(key: object, output_file_path: str = None) -> str:
 
 
 def pgp_export_private_key(
-    key: object, passphrase: str = None,
+    key: object,
+    passphrase: str = None,
 ) -> str:
     """
     Export a private key from the given key object.
@@ -85,14 +88,15 @@ def pgp_export_private_key(
 
     return private_key
 
-def pgp_import_key(key: str, key_file_path: str=None) -> object:
+
+def pgp_import_key(key: str, key_file_path: str = None) -> object:
     """
     A function that imports a PGP key either from a string or a file path and returns the import results. Either public or private key can be imported.
-    
+
     Parameters:
     key (str): The PGP key to import, either passed as a string or read from a file.
     key_file_path (str, optional): The file path to the PGP key file. If provided, the function reads the key from this file.
-    
+
     Returns:
     object: The import results of the PGP key.
     """
@@ -105,50 +109,48 @@ def pgp_import_key(key: str, key_file_path: str=None) -> object:
     print(result.results)
     return result.results
 
+
 def pgp_encrypt(
     recipient_key_id_list: str | list[str],
-    message: str= None,
+    message: str = None,
     message_file_path: str = None,
-    # passphrase: str = None,
-    output_file_path: str = None,
-) -> str:
+) -> any:
     """
     Encrypts a message using PGP encryption for the specified recipient key IDs and optional passphrase.
-    
+
     Args:
         message (str): The message to be encrypted.
         recipient_key_id_list (str | list[str]): The recipient key ID(s) for encryption.
         passphrase (str, optional): The passphrase for encryption. Defaults to PASSPHRASE_TEST.
         output_file_path (str, optional): The file path to save the encrypted message. Defaults to None.
-    
+
     Returns:
-        str: The encrypted message.
+        result: Result of the encryption.
     """
-    if message_file_path:
-        with open(message_file_path) as f:
-            message = f.read()
-    if not message:
+    if not message and not message_file_path:
         print("❌ no message or message file to encrypt")
         return None
 
+    # * make str to list if only one key is provided
     if not isinstance(recipient_key_id_list, list):
         recipient_key_id_list = [recipient_key_id_list]
 
-    result = gpg.encrypt(
-        data=message,
-        recipients=recipient_key_id_list,
-        passphrase=None,
-        always_trust=True,  # ! if false, keys trust must be ultimate
-    )
+    if message_file_path:
+        result = gpg.encrypt_file(
+            message_file_path,
+            recipients=recipient_key_id_list,
+            output=message_file_path+".gpg",
+            always_trust=True,  # ! if false, keys trust must be ultimate
+        )
+    else:
+        result = gpg.encrypt(
+            data=message,
+            recipients=recipient_key_id_list,
+            always_trust=True,  # ! if false, keys trust must be ultimate
+        )
 
-    out = result.data.decode("utf-8")
-    print(f"message for recipient(s) {recipient_key_id_list}:\n{out}")
-
-    if output_file_path:
-        with open(output_file_path, "w") as f:
-            # * decode byte stream to string
-            f.write(out)
-
+    # out = result.data.decode("utf-8")
+    print(f"{_get_success_icon(result.ok)} encrypted message for recipient(s) {recipient_key_id_list}")
     return result
 
 
@@ -156,7 +158,7 @@ def pgp_decrypt(
     message: str = None,
     message_file_path: str = None,
     passphrase: str = None,
-) -> str:
+) -> any:
     """
     A function to decrypt a PGP message. Decrypts the provided message using a passphrase and returns the decrypted message as a string.
     Private key of recipient must be in keyring!
@@ -167,28 +169,35 @@ def pgp_decrypt(
     - passphrase: str, the passphrase required for decryption
 
     Returns:
-    - str: The decrypted message as a string
+    - result: the result of the decryption
+
+    hint: result.data.decode("utf-8")
     """
 
-    if message_file_path:
-        with open(message_file_path) as f:
-            message = f.read()
-    if not message:
+    if not message and not message_file_path:
         print("❌ no message or message file to decrypt")
         return None
-
-    # * decrypt using secret key
-    orig = gpg.decrypt(message, 
-                    # passphrase=passphrase, 
-                    passphrase=None,
-                    always_trust=False,
-                )
+    if message_file_path:
+        # with open(message_file_path) as f:
+        #     message = f.read()
+        result = gpg.decrypt_file(
+            fileobj_or_path=message_file_path,
+            passphrase=passphrase,
+            output=message_file_path[:-4],
+            always_trust=True,
+        )
+    else:
+        # * decrypt using secret key
+        result = gpg.decrypt(
+            message,
+            passphrase=passphrase,
+            always_trust=True,
+        )
 
     # * decode byte stream to string
-    out = orig.data.decode("utf-8")
-    print(out)
-
-    return orig
+    print(f"{_get_success_icon(result.ok)} decrypted message")
+    
+    return result
 
 
 def pgp_find_key(key_id: str, check_private: bool = False) -> str:
@@ -208,14 +217,14 @@ def pgp_find_key(key_id: str, check_private: bool = False) -> str:
     if len(key_id) < 8:
         print("❌ key_id must be at least 6 characters long")
         return None
-    
-    keys=gpg.list_keys(check_private)
-    key_ids=[key['keyid'] for key in keys]
-    key_prints = [key['fingerprint'] for key in keys]
-    
+
+    keys = gpg.list_keys(check_private)
+    key_ids = [key["keyid"] for key in keys]
+    key_prints = [key["fingerprint"] for key in keys]
+
     key_ids_match = [item for item in key_ids if key_id in item]
     key_prints_match = [item for item in key_prints if key_id in item]
-    
+
     if key_ids_match:
         print(f"✅ key found: {key_ids_match}")
         return key_ids_match
