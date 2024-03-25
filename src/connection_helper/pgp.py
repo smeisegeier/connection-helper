@@ -7,7 +7,7 @@ gpg = gnu.GPG()
 def _get_success_icon(success: bool) -> str:
     return "✅" if success else "❌"
 
-def pgp_generate_key(
+def generate_key(
     name_email: str = "test@example.com",
     key_length: int = 2048,
     name_real: str = "slim shady",
@@ -45,7 +45,7 @@ def pgp_generate_key(
     return key
 
 
-def pgp_export_public_key(key: object, output_file_path: str = None) -> str:
+def export_public_key(key: object, output_file_path: str = None) -> str:
     """
     A function to export a public key from an object id.
 
@@ -69,7 +69,7 @@ def pgp_export_public_key(key: object, output_file_path: str = None) -> str:
     return public_key
 
 
-def pgp_export_private_key(
+def export_private_key(
     key: object,
     passphrase: str = None,
 ) -> str:
@@ -89,7 +89,7 @@ def pgp_export_private_key(
     return private_key
 
 
-def pgp_import_key(key: str, key_file_path: str = None) -> object:
+def import_key(key: str, key_file_path: str = None) -> object:
     """
     A function that imports a PGP key either from a string or a file path and returns the import results. Either public or private key can be imported.
 
@@ -110,7 +110,7 @@ def pgp_import_key(key: str, key_file_path: str = None) -> object:
     return result.results
 
 
-def pgp_encrypt(
+def encrypt(
     recipient_key_id_list: str | list[str],
     message: str = None,
     message_file_path: str = None,
@@ -154,7 +154,7 @@ def pgp_encrypt(
     return result
 
 
-def pgp_decrypt(
+def decrypt(
     message: str = None,
     message_file_path: str = None,
     passphrase: str = None,
@@ -200,7 +200,7 @@ def pgp_decrypt(
     return result
 
 
-def pgp_find_key(key_id: str, check_private: bool = False) -> str:
+def find_key(key_id: str, check_private: bool = False) -> str:
     """
     Finds a PGP key by its key ID. Either key id or fingerprint must be provided.
 

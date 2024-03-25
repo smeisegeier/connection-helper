@@ -13,12 +13,7 @@ pip install connection-helper -U
 include in python
 
 ```python
-from connection_helper import sql
-```
-
-## example
-
-```python
+from connection_helper import sql, pgp
 ```
 
 ## why use connection-helper
@@ -26,9 +21,13 @@ from connection_helper import sql
 `connection-helper` bundles some packages for connecting to sql databases
 
 - `sql` is added as convenience wrapper for retrieving data from sql databases
-  - `connect_sql` get data from `['mssql', 'sqlite','postgres']`
+  - `connect_sql` to get get data from `['mssql', 'sqlite','postgres']`
+  - [ ] azure storage connector 🚧 🔜
 
-- `cpt` cryptographic tools adapted from `python-gnupg`
-  - ⚠️ still experimental
+- `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some cenvenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
+  - `encrypt()` a message for one or more recipient(s) with a public key
+  - `decrypt()` a message with a private key. Passphrase must be provided via env variable
+  - `find_key()` in keyring
+  - ...
 
-## dependencies
+> 💡 These methods require a pgp public/private key in the keyring
