@@ -3,6 +3,7 @@ import sqlite3
 from typing import Literal
 import pandas as pd
 import duckdb as ddb
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists
