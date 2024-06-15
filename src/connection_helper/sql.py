@@ -2,6 +2,7 @@ import os
 import sqlite3
 from typing import Literal
 import pandas as pd
+import duckdb as ddb
 
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists
@@ -75,13 +76,14 @@ def connect_sql(
 
     return con
 
-
 def unpack_sqlite_to_parquet(
     file_sqlite: str,
     dir_local: str,
     fetch_views: bool = False,
     where_clause: str = "",
-    verbose: bool = False,
+    overwrite: bool = False,
+    verbose: bool = True,
+    debug: bool = False,
 ) -> None:
     """
     Unpacks a SQLite database file into individual Parquet files for each table.
@@ -91,7 +93,9 @@ def unpack_sqlite_to_parquet(
         dir_local (str): The directory where the Parquet files will be saved.
         fetch_views (bool, optional): Whether to include views in the unpacking. Defaults to False.
         where_clause (str, optional): The optional WHERE clause to filter the tables. Defaults to "". Statement starts after the WHERE keyword.
-        verbose (bool, optional): Whether to print the progress. Defaults to False.
+        overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.
+        verbose (bool, optional): Whether to print the progress. Defaults to True.
+        debug (bool, optional): Whether to debug. Defaults to False.
 
     Returns:
         None
@@ -106,13 +110,87 @@ def unpack_sqlite_to_parquet(
     con_sqlite = sqlite3.connect(file_sqlite)
     with con_sqlite:
         df_tables = pd.read_sql(con=con_sqlite, sql=qry)
+        
+    if debug:
+        print("🧪 debugging 🧪")
 
     # * write tables in a loop
     for tbl in df_tables["name"].to_list():
-        df = pd.read_sql(con=con_sqlite, sql=f"SELECT * FROM {tbl}")
-        path = os.path.join(dir_local, f"{tbl}.parquet")
-        if verbose:
-            print(f"⏳ writing: {path} with {df.shape}")
-        df.to_parquet(path,index=False)
+        path = os.path.join(dir_local, f"{tbl}.parquet")        
+        exists = os.path.exists(path)
+        df = None
+
+        if not debug and ((overwrite and exists) or (not exists)):
+            df = pd.read_sql(con=con_sqlite, sql=f"SELECT * FROM {tbl}")
+
+        shape = df.shape if df is not None else "???" 
+
+        if verbose or debug:
+            if exists:
+                if overwrite:
+                    print(f"⏳ replacing: {path} ➡️ {shape}")
+                else:
+                    print(f"💨 skipping: {path}")
+            else:
+                print(f"⏳ creating: {path} ➡️ {shape}")
+        if not debug and ((overwrite and exists) or (not exists)):
+            df.to_parquet(path,index=False)
 
     con_sqlite.close()
+
+def unpack_files_to_duckdb(
+    dir: Path,
+    ext: Literal["csv", "parquet"],
+    list_files: list[str] = None,
+    prefix: str = "",
+    verbose: bool = False,
+    debug: bool = False,
+):
+    """
+    Unpacks files from a given directory to a DuckDB database.
+
+    Args:
+        dir (Path): The directory containing the files to unpack.
+        ext (Literal["csv", "parquet"]): The file extension to unpack.
+        list_files (list[str], optional): A list of files to unpack. Defaults to None.
+        prefix (str, optional): A prefix to add to the unpacked files. Defaults to "".
+        verbose (bool, optional): Whether to print loading messages. Defaults to False.
+        debug (bool, optional): Whether to return a string instead of a DuckDB database. Defaults to False.
+
+    Returns:
+        Union[Tuple, str]: If debug is False, returns a tuple of DuckDB tables. If debug is True, returns a string of sorted file names.
+
+    """
+    files = set([os.path.basename(file).split(".")[0] for file in os.listdir(dir)])
+    
+    # * filter files if present
+    if list_files is not None:
+        files = files & set(list_files)
+    
+    # * exit or sort
+    if files is None:
+        return None
+    else: files=sorted(files)
+
+    items = []
+    for file in files:
+        if verbose:
+            print(f"⏳ loading {file}")
+        if not debug:
+            if ext == "parquet":
+                items.append(
+                    ddb.read_parquet((dir / f"{file}.parquet").as_posix())
+                )
+            elif ext == "csv":
+                items.append(
+                    ddb.read_csv((dir / f"{file}.csv").as_posix(), header=True)
+                )
+
+    if not debug:
+        # * unpacking the ddb files in tupel notation works
+        out = (*items,)
+    else:
+        files = [f"{prefix}{file}" for file in files]
+        out = str(sorted(files)).replace("'", "").replace("[", "").replace("]", "")
+
+    return out
