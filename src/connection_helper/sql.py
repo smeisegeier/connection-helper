@@ -156,7 +156,6 @@ def load_sql_to_sqlite(
     con_sqlite.close()
     return
 
-
 def load_sqlite_to_parquet(
     file_sqlite: str,
     dir_local: str,
@@ -191,21 +190,22 @@ def load_sqlite_to_parquet(
 
     # * retrieve db name from file, this will be default name 
     db_name= os.path.basename(file_sqlite).split(".")[0]
-    # * connect to db
-    ddb.sql(f"attach if not exists '{file_sqlite}' as {db_name}; use {db_name};")
+
+    # * connect to db 
+    con= ddb.connect(file_sqlite)
+
     # * retrieve all tables. this cant be filtered by database_name (weird effect)
-    df_db=ddb.sql("SELECT * FROM duckdb_tables;").to_df()
-    
+    df_db=con.sql("SELECT * FROM duckdb_tables();").to_df()
+
     # * narrow down tables
     df_tbl = df_db.query(table_filter) if table_filter else df_db
-    # * filter out other databases / connections / files
-    df_tbl = df_tbl[df_tbl["database_name"] == db_name][["table_name"]]["table_name"].tolist()
 
     if debug:
         print("🧪 debugging 🧪")
+        # display(df_tbl)
 
     # * write tables in a loop
-    for tbl in df_tbl:
+    for tbl in df_tbl["table_name"]:
         path = os.path.join(dir_local, f"{tbl}.parquet")
         exists = os.path.exists(path)
 
@@ -221,8 +221,9 @@ def load_sqlite_to_parquet(
         if not debug and ((overwrite and exists) or (not exists)):
             # todo add top_n_rows
             qry=f"copy (select * from {tbl}) to '{path}'"
-            ddb.sql(qry)
+            con.sql(qry)
 
+    con.close()
     return
 
 def load_files_to_duckdb(
@@ -261,7 +262,7 @@ def load_files_to_duckdb(
 
     items = []
     for file in files:
-        if verbose:
+        if verbose or debug:
             print(f"⏳ loading {file}")
         if not debug:
             if ext == "parquet":
