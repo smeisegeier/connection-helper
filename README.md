@@ -24,7 +24,7 @@ from connection_helper import sql, pgp
   - `connect_sql()` to get get data from `['mssql', 'sqlite','postgres']`
   - 🆕 `load_sql_to_sqlite` connect to a sql db and transfer a list of tables to `sqlite`
   - 🆕 `load_sqlite_to_parquet()` to get all tables from a sqlite file as parquets
-  - 🆕 `load_files_to_duckdb()` to get all files of a dir (csv or parquet) into high performance duckdb objects ⚡
+  - 🆕 `unpack_files_to_duckdb()` return a tuple of all files of a dir (csv or parquet) into high performance duckdb objects ⚡
   - [ ] azure storage connector 🚧
 
 - `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some cenvenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
