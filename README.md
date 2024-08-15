@@ -25,6 +25,7 @@ from connection_helper import sql, pgp
   - `load_sql_to_sqlite` connect to a sql db and transfer a list of tables to `sqlite`
   - `load_sqlite_to_parquet()` to get all tables from a sqlite file as parquets
   - `unpack_files_to_duckdb()` return a tuple of all files of a dir (csv or parquet) into high performance duckdb objects ⚡
+  - `print_meta()` print meta information of a certain database (niche case)
   - [ ] azure storage connector 🚧
 
 - `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some cenvenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
@@ -35,5 +36,5 @@ from connection_helper import sql, pgp
 
 > 💡 These methods require a pgp public/private key in the keyring
 
-- `sec` secrets module. ⚠️ this package is optional and must be extra installed with `pip install connection-helper[sec]`
+- `sec` secrets module. ⚠️ this package is optional and must be extra installed with `pip install 'connection-helper[sec]'` (enclose in '')
   - 🆕 `get_infisical_secrets()` retrieve secrets from [Infisical](https://infisical.com/) project (requires existing account and machine identities)

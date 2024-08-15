@@ -14,7 +14,7 @@ def get_infisical_secrets(
     environment="dev",
 ) -> list[str]:
     """
-    ! Note: this function must be extra installed with `pip install connection-helper[sec]`
+    ! Note: this function must be extra installed with `pip install 'connection-helper[sec]'` (mind the extra '')
     A function to retrieve secrets from InfisicalClient based on the provided settings.
     A path to .env file must be provided, containing all of these items:
     INF_PROJECT, INF_CLIENT, INF_SECRET

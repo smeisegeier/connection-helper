@@ -1,9 +1,13 @@
 import os
+import pathlib
+from os.path import expanduser
+
 import sqlite3
 from typing import Literal
 import pandas as pd
 import duckdb as ddb
 from pathlib import Path
+import datetime as dt
 
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists
@@ -295,3 +299,37 @@ def unpack_files_to_duckdb(
         con_.close()
 
     return out
+
+def print_meta(path_sqlite: str | Path) -> None:
+    """
+    Prints metadata information from a given SQLite database file.
+
+    Args:
+        path_sqlite (str | Path): The path to the SQLite database file.
+
+    Returns:
+        None
+    """
+    # * resolve possible ~ in path
+    path = Path(expanduser(path_sqlite))
+
+    con = sqlite3.connect(path)
+    meta= pd.read_sql_query("SELECT * from _meta", con)
+
+    deli = meta.get('data_delivered_at')
+    # trans = meta.get('table_transmitted_at')
+    creat = meta['table_created_at']
+    tag = meta.get('tag')
+
+
+    print(f"{'sqlite db file:': <25}{path.name}")
+    if tag is not None:
+        print(f"{'data tag:': <25}{tag[0]}")
+    if deli is not None:
+        print(f"{'last kkr data import:': <25}{deli[0][:19]}")
+    if creat is not None:
+        print(f"{'sql table created:': <25}{creat[0][:19]}")
+    # if trans is not None:
+    #     print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
+    print(f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}")
+    return
