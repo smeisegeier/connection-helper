@@ -317,7 +317,7 @@ def print_meta(path_sqlite: str | Path) -> None:
     meta= pd.read_sql_query("SELECT * from _meta", con)
 
     deli = meta.get('data_delivered_at')
-    # trans = meta.get('table_transmitted_at')
+    trans = meta.get('table_transmitted_at')
     creat = meta['table_created_at']
     tag = meta.get('tag')
 
@@ -329,7 +329,7 @@ def print_meta(path_sqlite: str | Path) -> None:
         print(f"{'last kkr data import:': <25}{deli[0][:19]}")
     if creat is not None:
         print(f"{'sql table created:': <25}{creat[0][:19]}")
-    # if trans is not None:
-    #     print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
+    if trans is not None:
+        print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
     print(f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}")
     return

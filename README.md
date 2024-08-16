@@ -13,7 +13,7 @@ pip install connection-helper -U
 include in python
 
 ```python
-from connection_helper import sql, pgp
+from connection_helper import sql, pgp, sec
 ```
 
 ## why use connection-helper
@@ -34,7 +34,7 @@ from connection_helper import sql, pgp
   - `find_key()` in keyring
   - ...
 
-> 💡 These methods require a pgp public/private key in the keyring
+> 💡 The pgp methods require a pgp public/private key in the keyring
 
 - `sec` secrets module. ⚠️ this package is optional and must be extra installed with `pip install 'connection-helper[sec]'` (enclose in '')
   - 🆕 `get_infisical_secrets()` retrieve secrets from [Infisical](https://infisical.com/) project (requires existing account and machine identities)
