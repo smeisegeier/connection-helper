@@ -12,6 +12,7 @@ import datetime as dt
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists
 
+from dotenv import load_dotenv, find_dotenv
 
 def connect_sql(
     db: str,
@@ -333,3 +334,86 @@ def print_meta(path_sqlite: str | Path) -> None:
         print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
     print(f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}")
     return
+
+
+def load_from_mssql(
+    query: str, 
+    host: str,  # This will be either the host name or the environment variable name
+    db: str,    # This will be either the db name or the environment variable name
+    use_env: bool = True,
+) -> pd.DataFrame:
+    """
+    Loads data from an MSSQL database into a Pandas DataFrame.
+
+    Args:
+        query (str): The SQL query to execute for loading the data.
+        host (str): The SQL server host or the environment variable name for it.
+        db (str): The database name or the environment variable name for it.
+        use_env (bool): Whether to use environment variables for the connection. Default is True.
+    
+    Returns:
+        pd.DataFrame: The loaded data in a DataFrame.
+    """
+    if use_env:
+        # Load environment variables
+        load_dotenv(find_dotenv())
+        host = os.getenv(host)
+        db = os.getenv(db)
+
+    # Ensure host and db are provided
+    if not host or not db:
+        raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
+
+    # Establish SQL connection
+    con = connect_sql(host=host, db=db, dbms='mssql')
+
+    # Load the DataFrame from SQL
+    df = pd.read_sql(query, con)
+    print(f"✔️ Data loaded from [{db}]")
+
+    return df
+
+
+def save_to_mssql(
+    df: pd.DataFrame, 
+    host: str,  # This will be either the host name or the environment variable name
+    db: str,    # This will be either the db name or the environment variable name
+    table_name: str, 
+    schema_name: str = "dbo",
+    use_env: bool = True,
+) -> None:
+    """
+    Prompts the user to save data to an MSSQL table.
+
+    Args:
+        df: The input DataFrame.
+        host (str): The SQL server host or the environment variable name for it.
+        db (str): The database name or the environment variable name for it.
+        use_env (bool): Whether to use environment variables for the connection. Default is True.
+        table_name (str): Name of the table to save data to.
+        schema_name (str): Name of the schema. Default is 'dbo'.
+    """
+    user_input = input(f"⚠️ Do you want to write the data to the MSSQL table {schema_name}.{table_name}? (y/[n]): ")
+    
+    if user_input.lower() != "y":
+        print("❌ Aborted.")
+        return
+
+    if use_env:
+        # Load environment variables
+        load_dotenv(find_dotenv())
+        host = os.getenv(host)
+        db = os.getenv(db)
+
+    # Ensure host and db are provided
+    if not host or not db:
+        raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
+
+    # Establish SQL connection
+    con = connect_sql(host=host, db=db, dbms='mssql')
+
+    # Save the DataFrame to SQL
+    df.to_sql(table_name, schema=schema_name, con=con, if_exists='replace', index=False)
+    print(f"✔️ Table [{schema_name}].[{table_name}] written to SQL")
+    return
+
