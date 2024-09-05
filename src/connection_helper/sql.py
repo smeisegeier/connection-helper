@@ -381,6 +381,8 @@ def save_to_mssql(
     table_name: str, 
     schema_name: str = "dbo",
     use_env: bool = True,
+    add_id: bool = False,
+    add_timestamp: bool = False,
 ) -> None:
     """
     Prompts the user to save data to an MSSQL table.
@@ -392,13 +394,10 @@ def save_to_mssql(
         use_env (bool): Whether to use environment variables for the connection. Default is True.
         table_name (str): Name of the table to save data to.
         schema_name (str): Name of the schema. Default is 'dbo'.
+        add_id (bool): Whether to add an id column. Default is False.
+        add_timestamp (bool): Whether to add a craeted_at column. Default is False.
     """
-    user_input = input(f"⚠️ Do you want to write the data to the MSSQL table {schema_name}.{table_name}? (y/[n]): ")
-    
-    if user_input.lower() != "y":
-        print("❌ Aborted.")
-        return
-
+    df_ = df.copy()
     if use_env:
         # Load environment variables
         load_dotenv(find_dotenv())
@@ -409,11 +408,25 @@ def save_to_mssql(
     if not host or not db:
         raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
 
+    # add timestamp column to df
+    if add_timestamp and "created_at" not in df_.columns:
+        df_["created_at"] = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # add id column to df
+    if add_id and "id" not in df_.columns:
+        df_.insert(0, 'id', range(1, len(df_) + 1))
+
+    user_input = input(f"🚨 Do you want to write the data to the MSSQL table [{schema_name}].[{table_name}] on [{host}].[{db}]? (y/[n]): ")
+    if user_input.lower() == "n":
+        print("❌ Aborted.")
+        return
+
     # Establish SQL connection
     con = connect_sql(host=host, db=db, dbms='mssql')
 
     # Save the DataFrame to SQL
-    df.to_sql(table_name, schema=schema_name, con=con, if_exists='replace', index=False)
-    print(f"✔️ Table [{schema_name}].[{table_name}] written to SQL")
+    print("⏳ writing data to MSSQL...")
+    df_.to_sql(table_name, schema=schema_name, con=con, if_exists='replace', index=False)
+    print(f"✅ data written to [{schema_name}].[{table_name}] on [{host}].[{db}]")
     return
 
