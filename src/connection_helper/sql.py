@@ -89,17 +89,19 @@ def load_sql_to_sqlite(
     file_db: str,
     list_tables: list[str],
     dict_meta: dict = None,
+    dict_views: dict = None,
     top_n_rows: int=0,
     verbose: bool=True
 ) -> None:
     """
-    Load SQL tables into a SQLite database.
+    Load SQL tables into a SQLite database. Adds table _meta with metadata if dict_meta is given. Adds views if dict_views is given.
 
     Args:
         con_source (object): The connection object to the source database.
         file_db (str): The path to the SQLite database file.
         list_tables (list[str]): A list of SQL tables to load. Each table can be specified as a string or a list of two strings, where the first string is the table name in the source database and the second string is the table name in the SQLite database (optional).
         dict_meta (dict, optional): A dictionary containing metadata to be written to the SQLite database. Defaults to None.
+        dict_views (dict, optional): A dictionary containing views to be written to the SQLite database. Defaults to None. Structure: {view_name: view_query}.
         top_n_rows (int, optional): The number of rows to load from each table. Defaults to 0.
         verbose (bool, optional): Whether to print progress messages. Defaults to True.
 
@@ -119,15 +121,19 @@ def load_sql_to_sqlite(
 
     con_sqlite = sqlite3.connect(file_db)
     batchsize = 10000
+    
+    # * create views
+    cursor = con_sqlite.cursor()
+    if dict_views is not None:
+        for key, value in dict_views.items():
+            cursor.execute(f"create view if not exists {key} as {value};")
 
-    # todo normalize on a set of terms like table_created_at, data_extracted_at, etc.
-    # (table_created_at, data_extracted_at, (table_transmitted_at))
-    # {"table_created_at":"lol", "data_extracted_at":"xde"}
     # * write meta table if dict was given
     if dict_meta is not None:
         df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
         df_meta.to_sql("_meta", con_sqlite, if_exists="replace", index=False)
     
+    # * check if list is nested
     is_list_nested=all([isinstance(i,list) for i in list_tables])
 
     for item in list_tables:
