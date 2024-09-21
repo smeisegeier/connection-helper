@@ -101,7 +101,7 @@ def load_sql_to_sqlite(
         file_db (str): The path to the SQLite database file.
         list_tables (list[str]): A list of SQL tables to load. Each table can be specified as a string or a list of two strings, where the first string is the table name in the source database and the second string is the table name in the SQLite database (optional).
         dict_meta (dict, optional): A dictionary containing metadata to be written to the SQLite database. Defaults to None.
-        dict_views (dict, optional): A dictionary containing views to be written to the SQLite database. Defaults to None. Structure: {view_name: view_query}.
+        dict_views (dict, optional): A dictionary containing views to be written to the SQLite database. Defaults to None. Structure: {view_name: view_query}. view_query must not include the create view statement, but only the select statement.
         top_n_rows (int, optional): The number of rows to load from each table. Defaults to 0.
         verbose (bool, optional): Whether to print progress messages. Defaults to True.
 
@@ -126,8 +126,8 @@ def load_sql_to_sqlite(
     cursor = con_sqlite.cursor()
     if dict_views is not None:
         for key, value in dict_views.items():
-            cursor.execute(f"create view if not exists {key} as {value};")
-
+            cursor.execute(f"create view if not exists {key} as {value.replace(';','')};")
+    
     # * write meta table if dict was given
     if dict_meta is not None:
         df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
