@@ -436,3 +436,37 @@ def save_to_mssql(
     print(f"✅ data written to [{schema_name}].[{table_name}] on [{host}].[{db}]")
     return
 
+
+
+def load_file_to_duckdb(
+    con: ddb.DuckDBPyConnection, path: str, **kwargs
+) -> ddb.DuckDBPyRelation:
+    """
+    Loads data from various sources into a duckdb database, using these pandas read functions:
+        - read_csv
+        - read_parquet
+        - read_excel
+
+    Args:
+        con (duckdb connection): The DuckDB connection to use.
+        path (str): The path to the resource to load.
+        kwargs: Additional keyword arguments to pass to the respective pandas read function.
+        Examples:
+            - sep=";"
+            - encoding="utf-8-sig"
+            - sheet_name=0
+
+    Returns:
+        duckdb.DuckDBPyRelation
+    """
+
+    if path.endswith((".csv", ".txt")):
+        df = pd.read_csv(path, **kwargs)
+    elif path.endswith(".parquet"):
+        df = pd.read_parquet(path, **kwargs)
+    elif path.endswith(".xlsx"):
+        df = pd.read_excel(path, **kwargs)
+
+    con.register("df", df)
+    db = con.sql("SELECT * FROM df")
+    return db
