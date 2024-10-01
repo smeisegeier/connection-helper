@@ -437,7 +437,6 @@ def save_to_mssql(
     return
 
 
-
 def load_file_to_duckdb(
     con: ddb.DuckDBPyConnection, path: str, **kwargs
 ) -> ddb.DuckDBPyRelation:
@@ -467,6 +466,6 @@ def load_file_to_duckdb(
     elif path.endswith(".xlsx"):
         df = pd.read_excel(path, **kwargs)
 
-    con.register("df", df)
-    db = con.sql("SELECT * FROM df")
+    con.register(path, df)
+    db = con.sql(f"SELECT * FROM '{path}'")
     return db
