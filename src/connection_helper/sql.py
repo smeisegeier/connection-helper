@@ -382,37 +382,50 @@ def load_from_mssql(
 
 def save_to_mssql(
     df: pd.DataFrame, 
-    host: str,  # This will be either the host name or the environment variable name
-    db: str,    # This will be either the db name or the environment variable name
-    table_name: str, 
+    con: object = None,
+    host: str = "",  # This will be either the host name or the environment variable name
+    db: str = "",    # This will be either the db name or the environment variable name
+    table_name: str = "Table",
     schema_name: str = "dbo",
     use_env: bool = True,
     add_id: bool = False,
     add_timestamp: bool = False,
+    ask_user: bool = True,
 ) -> None:
     """
-    Prompts the user to save data to an MSSQL table.
+    Saves data to an MSSQL database. Uses either a connection object or environment variables / host and db for the connection.
 
     Args:
         df: The input DataFrame.
-        host (str): The SQL server host or the environment variable name for it.
-        db (str): The database name or the environment variable name for it.
+        con (object, optional): The connection object. Defaults to None.
+        host (str, optional): The SQL server host or the environment variable name for it.
+        db (str, optional): The database name or the environment variable name for it.
         use_env (bool): Whether to use environment variables for the connection. Default is True.
         table_name (str): Name of the table to save data to.
         schema_name (str): Name of the schema. Default is 'dbo'.
         add_id (bool): Whether to add an id column. Default is False.
         add_timestamp (bool): Whether to add a craeted_at column. Default is False.
+        ask_user (bool): Whether to ask the user for confirmation. Default is True.
     """
     df_ = df.copy()
-    if use_env:
-        # Load environment variables
-        load_dotenv(find_dotenv())
-        host = os.getenv(host)
-        db = os.getenv(db)
-
-    # Ensure host and db are provided
-    if not host or not db:
-        raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
+    
+    if ask_user:
+        user_input = input(f"🚨 Do you want to write the data to the MSSQL table [{schema_name}].[{table_name}] on [{host}].[{db}]? ([y]/n): ")
+        if user_input.lower() != "y":
+            print("❌ Aborted.")
+            return
+    
+    # Establish SQL connection
+    if con is None:
+        if use_env:
+            # Load environment variables
+            load_dotenv(find_dotenv())
+            host = os.getenv(host)
+            db = os.getenv(db)
+        # Ensure host and db are provided
+        if not host or not db:
+            raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
+        con = connect_sql(host=host, db=db, dbms='mssql')
 
     # add timestamp column to df
     if add_timestamp and "created_at" not in df_.columns:
@@ -421,14 +434,6 @@ def save_to_mssql(
     # add id column to df
     if add_id and "id" not in df_.columns:
         df_.insert(0, 'id', range(1, len(df_) + 1))
-
-    user_input = input(f"🚨 Do you want to write the data to the MSSQL table [{schema_name}].[{table_name}] on [{host}].[{db}]? (y/[n]): ")
-    if user_input.lower() == "n":
-        print("❌ Aborted.")
-        return
-
-    # Establish SQL connection
-    con = connect_sql(host=host, db=db, dbms='mssql')
 
     # Save the DataFrame to SQL
     print("⏳ writing data to MSSQL...")
