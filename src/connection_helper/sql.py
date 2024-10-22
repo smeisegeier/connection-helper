@@ -319,6 +319,9 @@ def print_meta(path_sqlite: str | Path) -> None:
     """
     # * resolve possible ~ in path
     path = Path(expanduser(path_sqlite))
+    
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path_sqlite}")
 
     con = sqlite3.connect(path)
     meta= pd.read_sql_query("SELECT * from _meta", con)
@@ -443,7 +446,7 @@ def save_to_mssql(
 
 
 def load_file_to_duckdb(
-    con: ddb.DuckDBPyConnection, path: str, **kwargs
+    con: ddb.DuckDBPyConnection, path: str | Path, **kwargs
 ) -> ddb.DuckDBPyRelation:
     """
     Loads data from various sources into a duckdb database, using these pandas read functions:
@@ -463,7 +466,13 @@ def load_file_to_duckdb(
     Returns:
         duckdb.DuckDBPyRelation
     """
+    # * resolve possible ~ in path
+    path = Path(expanduser(path))
 
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+    
+    path = Path(path).as_posix()
     if path.endswith((".csv", ".txt")):
         df = pd.read_csv(path, **kwargs)
     elif path.endswith(".parquet"):
