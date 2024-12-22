@@ -4,6 +4,7 @@ from os.path import expanduser
 
 import sqlite3
 from typing import Literal
+from urllib.parse import urlparse
 import pandas as pd
 import duckdb as ddb
 from pathlib import Path
@@ -13,6 +14,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists
 
 from dotenv import load_dotenv, find_dotenv
+
+
+def is_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return all(
+        [parsed.scheme, parsed.netloc]
+    )
+
 
 def connect_sql(
     db: str,
@@ -453,6 +462,7 @@ def load_file_to_duckdb(
         - read_csv
         - read_parquet
         - read_excel
+    It also handles url paths.
 
     Args:
         con (duckdb connection): The DuckDB connection to use.
@@ -466,13 +476,21 @@ def load_file_to_duckdb(
     Returns:
         duckdb.DuckDBPyRelation
     """
-    # * resolve possible ~ in path
-    path = Path(expanduser(path))
+    if not path:
+        raise FileNotFoundError(f"❌ path is empty")
 
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
-    
-    path = Path(path).as_posix()
+    # * is file path
+    if not is_url(str(path)):
+        if not Path(path).exists():
+            raise FileNotFoundError(f"❌ file not found: {path}")
+
+        # ! only str paths from here on
+        path = Path(path).as_posix()
+
+        # * resolve possible home in path
+        if "~" in path:
+            path = Path(expanduser(path))
+
     if path.endswith((".csv", ".txt")):
         df = pd.read_csv(path, **kwargs)
     elif path.endswith(".parquet"):
@@ -480,6 +498,5 @@ def load_file_to_duckdb(
     elif path.endswith(".xlsx"):
         df = pd.read_excel(path, **kwargs)
 
-    con.register(path, df)
-    db = con.sql(f"SELECT * FROM '{path}'")
+    db = con.from_df(df)
     return db
