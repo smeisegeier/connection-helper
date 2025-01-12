@@ -490,8 +490,11 @@ def load_file_to_duckdb(
         # * resolve possible home in path
         if "~" in path:
             path = Path(expanduser(path))
+    
 
     if path.endswith((".csv", ".txt")):
+        # * ; is default separator
+        kwargs.setdefault("sep", ";")
         df = pd.read_csv(path, **kwargs)
     elif path.endswith(".parquet"):
         df = pd.read_parquet(path, **kwargs)
