@@ -31,7 +31,7 @@ from connection_helper import sql, pgp, sec
   - 🆕 `load_file_to_duckdb()` load data from various sources into a duckdb database, using pandas read functions (_experimental_)
   - [ ] azure storage connector 🚧
 
-- `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some cenvenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
+- `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some convenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
   - `encrypt()` a message for one or more recipient(s) with a public key
   - `decrypt()` a message with a private key. Passphrase must be provided via env variable
   - `find_key()` in keyring
@@ -40,4 +40,4 @@ from connection_helper import sql, pgp, sec
 > 💡 The pgp methods require a pgp public/private key in the keyring
 
 - `sec` secrets module. ⚠️ this package is optional and must be extra installed with `pip install 'connection-helper[sec]'` (enclose in '')
-  - 🆕 `get_infisical_secrets()` retrieve secrets from [Infisical](https://infisical.com/) project (requires existing account and machine identities)
+  - `get_infisical_secrets()` retrieve secrets from [Infisical](https://infisical.com/) project (requires existing account and machine identities)

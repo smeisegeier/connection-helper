@@ -1,5 +1,8 @@
 import gnupg as gnu
 import os
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
+
 
 # * create object
 gpg = gnu.GPG()
@@ -156,36 +159,58 @@ def encrypt(
 
 def decrypt(
     message: str = None,
-    message_file_path: str = None,
+    message_file_path: str | Path = None,
     passphrase: str = None,
+    use_env: bool = False,
 ) -> any:
     """
     A function to decrypt a PGP message. Decrypts the provided message using a passphrase and returns the decrypted message as a string.
     Private key of recipient must be in keyring!
+    gpg-agent is not required, passphrase can be provided as a parameter or as an environment variable.
 
     Parameters:
-    - message: str, the PGP message to decrypt
+    - message: str, optional, the PGP message to decrypt
     - message_file_path: str, optional, the file path to the PGP message to decrypt
     - passphrase: str, the passphrase required for decryption
+    - use_env: bool, optional, whether to interpret the passphrase as a env variable. this sould be provided as a .env file, which will be loaded automatically within the repo
 
     Returns:
     - result: the result of the decryption
 
-    hint: result.data.decode("utf-8")
+    Remarks: if message is given, use: result.data.decode("utf-8")
     """
 
     if not message and not message_file_path:
         print("❌ no message or message file to decrypt")
         return None
+    
+    if use_env:
+        _=load_dotenv(find_dotenv())
+        passphrase = os.getenv(passphrase)
+        if not passphrase:
+            print("❌ passphrase not found in environment")
+            return None
+    else:
+        if not passphrase:
+            print("❌ no passphrase provided")
+            return None
+    
     if message_file_path:
         # with open(message_file_path) as f:
         #     message = f.read()
+        if not isinstance(message_file_path, Path):
+            message_file_path = Path(message_file_path)
+        
+        if not Path(message_file_path).exists():
+            print(f"❌ file not found: {message_file_path}")
+            return None
         result = gpg.decrypt_file(
-            fileobj_or_path=message_file_path,
+            fileobj_or_path=message_file_path.as_posix(),
             passphrase=passphrase,
-            output=message_file_path[:-4],
+            output=message_file_path.as_posix()[:-4],
             always_trust=True,
         )
+        print(f"{_get_success_icon(result.ok)} decrypted message into file: {message_file_path.as_posix()[:-4]}")
     else:
         # * decrypt using secret key
         result = gpg.decrypt(
@@ -193,9 +218,8 @@ def decrypt(
             passphrase=passphrase,
             always_trust=True,
         )
-
-    # * decode byte stream to string
-    print(f"{_get_success_icon(result.ok)} decrypted message")
+        # * decode byte stream to string
+        print(f"{_get_success_icon(result.ok)} decrypted message into return value")
     
     return result
 
