@@ -41,3 +41,4 @@ from connection_helper import sql, pgp, sec
 
 - `sec` secrets module. ⚠️ this package is optional and must be extra installed with `pip install 'connection-helper[sec]'` (enclose in '')
   - `get_infisical_secrets()` retrieve secrets from [Infisical](https://infisical.com/) project (requires existing account and machine identities)
+  - `get_bitwarden_secrets()` retrieve secrets from [Bitwarden](https://bitwarden.com/) vault (requires existing account and machine identities)

@@ -5,8 +5,11 @@ from infisical_client import (
     AuthenticationOptions,
     UniversalAuthMethod,
 )
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import os
+
+from bitwarden_sdk import BitwardenClient, DeviceType, client_settings_from_dict
+
 
 def get_infisical_secrets(
     secrets: list[str],
@@ -63,3 +66,55 @@ def get_infisical_secrets(
         out.append(result.secret_value)
 
     return out
+
+def get_bitwarden_secrets(list_key_ids: list[str]):
+    
+    """
+    Retrieve secrets from Bitwarden.
+
+    This function takes a list of key_ids and returns a dictionary with the secret values.
+    The Bitwarden API access token is loaded from the .env file, that must contain the BWS_ACCESS_TOKEN
+
+    Parameters:
+    - list_key_ids: list[str], the list of key_ids to retrieve
+
+    Returns:
+    - dict, the list of dictionarys with the secret values
+
+    Remarks:
+    - requires a .env file with the BWS_ACCESS_TOKEN
+    - requires the bitwarden-sdk package
+    """
+    if not load_dotenv(find_dotenv()):
+        print("❌ missing .env file")
+        return None
+    if not os.getenv("BWS_ACCESS_TOKEN"):
+        print("❌ missing BWS_ACCESS_TOKEN")
+        return None
+    if list_key_ids is None:
+        print("❌ missing list_key_ids")
+        return None
+
+    _=load_dotenv(find_dotenv())
+
+    identityUrl = "https://identity.bitwarden.com"
+    apiUrl = "https://api.bitwarden.com"
+    accessToken = os.getenv("BWS_ACCESS_TOKEN")
+
+    client = BitwardenClient(
+        client_settings_from_dict(
+            {
+                "apiUrl": apiUrl,
+                "deviceType": DeviceType.SDK,
+                "identityUrl": identityUrl,
+                "userAgent": "Python",
+            }
+        )
+    )
+
+    response=client.auth().login_access_token(access_token=accessToken)
+    # print(response.success)
+    
+    secrets_response = client.secrets().get_by_ids(list_key_ids).data.to_dict()
+    
+    return secrets_response
