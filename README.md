@@ -28,7 +28,8 @@ from connection_helper import sql, pgp, sec
   - `print_meta()` print meta information of a certain database (niche case)
   - `load_from_mssql()` load data from an MSSQL database into a Pandas DataFrame
   - `save_to_mssql()` save data from a Pandas DataFrame to an MSSQL database
-  - 🆕 `load_file_to_duckdb()` load data from various sources into a duckdb database, using pandas read functions (_experimental_)
+  - `load_file_to_duckdb()` load data from various sources into a duckdb database, using pandas read functions (_experimental_)
+  - 🆕`sqlite_to_duckdb()` converts a SQLite database to a DuckDB database
   - [ ] azure storage connector 🚧
 
 - `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some convenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).

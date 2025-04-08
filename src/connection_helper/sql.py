@@ -1,5 +1,4 @@
 import os
-import pathlib
 from os.path import expanduser
 
 import sqlite3
@@ -503,3 +502,45 @@ def load_file_to_duckdb(
 
     db = con.from_df(df)
     return db
+
+
+def sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
+    """
+    Converts a SQLite database to a DuckDB database.
+
+    Args:
+        sqlite_path (str | Path): The path to the SQLite file.
+        debug (bool, optional): If True, limits the export to 1000 rows per table for debugging. Defaults to False.
+
+    Returns:
+        None
+    """
+    sqlite_path = Path(sqlite_path)
+    if not sqlite_path.exists() or sqlite_path.suffix not in [".sqlite", ".db"]:
+        raise ValueError("Please provide a valid .sqlite file path / name (.sqlite or .db)")
+
+    duckdb_path = sqlite_path.with_suffix(".duckdb")
+
+    # Open connections
+    sqlite_conn = sqlite3.connect(sqlite_path)
+    duckdb_conn = ddb.connect(duckdb_path)
+
+    try:
+        # Get table list
+        cursor = sqlite_conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = [row[0] for row in cursor.fetchall()]
+
+        for table in tables:
+            print(f"Exporting {table}...")
+            query = f"SELECT * FROM {table} LIMIT 1000" if debug else f"SELECT * FROM {table}"
+            df = pd.read_sql_query(query, sqlite_conn)
+            duckdb_conn.register("df_view", df)
+            duckdb_conn.execute(f"CREATE TABLE {table} AS SELECT * FROM df_view")
+            duckdb_conn.unregister("df_view")
+
+        print(f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {duckdb_path}")
+
+    finally:
+        sqlite_conn.close()
+        duckdb_conn.close()
