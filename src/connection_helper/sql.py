@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, text
 import sqlalchemy.engine
 from sqlalchemy_utils import create_database, database_exists
 
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Literal
 
 from dotenv import load_dotenv, find_dotenv
 
