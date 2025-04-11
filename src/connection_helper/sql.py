@@ -2,7 +2,6 @@ import os
 from os.path import expanduser
 
 import sqlite3
-from typing import Literal
 from urllib.parse import urlparse
 import pandas as pd
 import duckdb as ddb
@@ -10,7 +9,10 @@ from pathlib import Path
 import datetime as dt
 
 from sqlalchemy import create_engine, text
+import sqlalchemy.engine
 from sqlalchemy_utils import create_database, database_exists
+
+from typing import List, Optional, Union
 
 from dotenv import load_dotenv, find_dotenv
 
@@ -503,44 +505,63 @@ def load_file_to_duckdb(
     db = con.from_df(df)
     return db
 
+def mssql_to_duckdb(
+   mssql_conn: sqlalchemy.engine.Connection,
+   tables: List[str],
+   schema: Optional[str] = None,
+   duckdb_path: Union[str, Path] = "output.duckdb",
+   debug: bool = False,
+   chunksize: Optional[int] = 100_000
+) -> None:
+   """
+   Converts selected tables from a MSSQL database to a DuckDB database with optional chunking.
 
-def sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
-    """
-    Converts a SQLite database to a DuckDB database.
+   Args:
+       mssql_conn (sqlalchemy.engine.Connection): An active SQLAlchemy MSSQL connection object.
+       tables (List[str]): List of table names to export.
+       schema (str | None, optional): If set, prepends schema to table names. If None or "", assumes schema is in the table name.
+       duckdb_path (str | Path, optional): Output DuckDB file path. Defaults to "output.duckdb".
+       debug (bool, optional): If True, only exports top 1000 rows. Defaults to False.
+       chunksize (int | None, optional): Number of rows per chunk. If None, loads entire table at once. Defaults to 100,000.
 
-    Args:
-        sqlite_path (str | Path): The path to the SQLite file.
-        debug (bool, optional): If True, limits the export to 1000 rows per table for debugging. Defaults to False.
+   Returns:
+       None
+   """
+   duckdb_path = Path(duckdb_path)
+   print(f"Exporting from MSSQL to DuckDB: {duckdb_path}")
 
-    Returns:
-        None
-    """
-    sqlite_path = Path(sqlite_path)
-    if not sqlite_path.exists() or sqlite_path.suffix not in [".sqlite", ".db"]:
-        raise ValueError("Please provide a valid .sqlite file path / name (.sqlite or .db)")
+    # * as_posix to avoid issues on windows
+   duckdb_conn = ddb.connect(duckdb_path.as_posix())
 
-    duckdb_path = sqlite_path.with_suffix(".duckdb")
+   try:
+       for table in tables:
+           full_table_name = f"{schema}.{table}" if schema else table
+           print(f"Exporting {full_table_name}...")
 
-    # Open connections
-    sqlite_conn = sqlite3.connect(sqlite_path)
-    duckdb_conn = ddb.connect(duckdb_path)
+           if debug:
+               query = f"SELECT TOP 1000 * FROM {full_table_name}"
+               df = pd.read_sql_query(query, mssql_conn)
+               table_name_only = table.split('.')[-1].strip('[]')
+               duckdb_conn.register("df_view", df)
+               duckdb_conn.execute(f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view")
+               duckdb_conn.unregister("df_view")
+           else:
+               query = f"SELECT * FROM {full_table_name}"
+               table_name_only = table.split('.')[-1].strip('[]')
+               first_chunk = True
 
-    try:
-        # Get table list
-        cursor = sqlite_conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in cursor.fetchall()]
+               for chunk in pd.read_sql_query(query, mssql_conn, chunksize=chunksize):
+                   duckdb_conn.register("df_view", chunk)
 
-        for table in tables:
-            print(f"Exporting {table}...")
-            query = f"SELECT * FROM {table} LIMIT 1000" if debug else f"SELECT * FROM {table}"
-            df = pd.read_sql_query(query, sqlite_conn)
-            duckdb_conn.register("df_view", df)
-            duckdb_conn.execute(f"CREATE TABLE {table} AS SELECT * FROM df_view")
-            duckdb_conn.unregister("df_view")
+                   if first_chunk:
+                       duckdb_conn.execute(f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view")
+                       first_chunk = False
+                   else:
+                       duckdb_conn.execute(f"INSERT INTO {table_name_only} SELECT * FROM df_view")
 
-        print(f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {duckdb_path}")
+                   duckdb_conn.unregister("df_view")
 
-    finally:
-        sqlite_conn.close()
-        duckdb_conn.close()
+       print(f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {duckdb_path}")
+
+   finally:
+       duckdb_conn.close()
