@@ -19,9 +19,7 @@ from dotenv import load_dotenv, find_dotenv
 
 def is_url(url: str) -> bool:
     parsed = urlparse(url)
-    return all(
-        [parsed.scheme, parsed.netloc]
-    )
+    return all([parsed.scheme, parsed.netloc])
 
 
 def connect_sql(
@@ -93,15 +91,14 @@ def connect_sql(
     return con
 
 
-
 def load_sql_to_sqlite(
     con_source,
     file_db: str,
     list_tables: list[str],
     dict_meta: dict = None,
     dict_views: dict = None,
-    top_n_rows: int=0,
-    verbose: bool=True
+    top_n_rows: int = 0,
+    verbose: bool = True,
 ) -> None:
     """
     Load SQL tables into a SQLite database. Adds table _meta with metadata if dict_meta is given. Adds views if dict_views is given.
@@ -131,51 +128,55 @@ def load_sql_to_sqlite(
 
     con_sqlite = sqlite3.connect(file_db)
     batchsize = 10000
-    
+
     # * create views
     cursor = con_sqlite.cursor()
     if dict_views is not None:
         for key, value in dict_views.items():
-            cursor.execute(f"create view if not exists {key} as {value.replace(';','')};")
-    
+            cursor.execute(
+                f"create view if not exists {key} as {value.replace(';','')};"
+            )
+
     # * write meta table if dict was given
     if dict_meta is not None:
         df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
         df_meta.to_sql("_meta", con_sqlite, if_exists="replace", index=False)
-    
+
     # * check if list is nested
-    is_list_nested=all([isinstance(i,list) for i in list_tables])
+    is_list_nested = all([isinstance(i, list) for i in list_tables])
 
     for item in list_tables:
         if is_list_nested:
             table_sql = item[0]
-            table_friendly = item[1] if item[1] else item[0] if "." not in item[0] else item[0].split(".")[1]
+            table_friendly = (
+                item[1]
+                if item[1]
+                else item[0] if "." not in item[0] else item[0].split(".")[1]
+            )
         else:
             table_sql = item
             table_friendly = item if "." not in item else item.split(".")[1]
-            
+
         if verbose:
             print(f"processing: {table_sql} -> {table_friendly}")
 
-        top= f" top {top_n_rows}" if top_n_rows else ""
+        top = f" top {top_n_rows}" if top_n_rows else ""
         qry = f"select{top} * from {table_sql}"
 
-        proxy = (con_source
-                .execution_options(stream_results=True)
-                .execute(text(qry))
-                )
+        proxy = con_source.execution_options(stream_results=True).execute(text(qry))
         cols = list(proxy.keys())
 
         # todo pandas -> duckdb ??
-        while 'batch not empty':
+        while "batch not empty":
             batch = proxy.fetchmany(batchsize)
             df = pd.DataFrame(batch, columns=cols)
             df.to_sql(table_friendly, con_sqlite, if_exists="append", index=False)
             if not batch:
                 break
-        
+
     con_sqlite.close()
     return
+
 
 def load_sqlite_to_parquet(
     file_sqlite: str,
@@ -202,21 +203,21 @@ def load_sqlite_to_parquet(
     Returns:
         None
     """
-    
+
     if not os.path.exists(dir_local):
         os.makedirs(dir_local)
 
     # todo add support for views
     # views = ",'view'" if fetch_views else ""
 
-    # * retrieve db name from file, this will be default name 
-    db_name= os.path.basename(file_sqlite).split(".")[0]
+    # * retrieve db name from file, this will be default name
+    db_name = os.path.basename(file_sqlite).split(".")[0]
 
-    # * connect to db 
-    con= ddb.connect(file_sqlite)
+    # * connect to db
+    con = ddb.connect(file_sqlite)
 
     # * retrieve all tables. this cant be filtered by database_name (weird effect)
-    df_db=con.sql("SELECT * FROM duckdb_tables();").to_df()
+    df_db = con.sql("SELECT * FROM duckdb_tables();").to_df()
 
     # * narrow down tables
     df_tbl = df_db.query(table_filter) if table_filter else df_db
@@ -241,7 +242,7 @@ def load_sqlite_to_parquet(
 
         if not debug and ((overwrite and exists) or (not exists)):
             # todo add top_n_rows
-            qry=f"copy (select * from {tbl}) to '{path}'"
+            qry = f"copy (select * from {tbl}) to '{path}'"
             con.sql(qry)
 
     con.close()
@@ -251,7 +252,7 @@ def load_sqlite_to_parquet(
 def unpack_files_to_duckdb(
     dir: Path,
     ext: Literal["csv", "parquet"],
-    con = None,
+    con=None,
     list_files: list[str] = None,
     prefix: str = "",
     verbose: bool = False,
@@ -276,18 +277,19 @@ def unpack_files_to_duckdb(
     """
     # * if no con given, create new
     con_ = con if con else ddb.connect()
-    
+
     # * get basename of each file
     files = set([os.path.basename(file).split(".")[0] for file in os.listdir(dir)])
-    
+
     # * filter files if present
     if list_files is not None:
         files = files & set(list_files)
-    
+
     # * exit or sort
     if files is None:
         return None
-    else: files=sorted(files)
+    else:
+        files = sorted(files)
 
     items = []
     for file in files:
@@ -295,9 +297,7 @@ def unpack_files_to_duckdb(
             print(f"⏳ loading {file}")
         if not debug:
             if ext == "parquet":
-                items.append(
-                    con_.read_parquet((dir / f"{file}.parquet").as_posix())
-                )
+                items.append(con_.read_parquet((dir / f"{file}.parquet").as_posix()))
             elif ext == "csv":
                 items.append(
                     con_.read_csv((dir / f"{file}.csv").as_posix(), header=True)
@@ -306,7 +306,7 @@ def unpack_files_to_duckdb(
     if not debug:
         # * unpacking the ddb files in tupel notation works
         # * tuple trick seems to not work on 1-item list
-        out = items[0] if len(items)==1 else (*items,)
+        out = items[0] if len(items) == 1 else (*items,)
     else:
         files = [f"{prefix}{file}" for file in files]
         out = str(sorted(files)).replace("'", "").replace("[", "").replace("]", "")
@@ -316,6 +316,7 @@ def unpack_files_to_duckdb(
         con_.close()
 
     return out
+
 
 def print_meta(path_sqlite: str | Path) -> None:
     """
@@ -329,18 +330,23 @@ def print_meta(path_sqlite: str | Path) -> None:
     """
     # * resolve possible ~ in path
     path = Path(expanduser(path_sqlite))
-    
+
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path_sqlite}")
 
-    con = sqlite3.connect(path)
-    meta= pd.read_sql_query("SELECT * from _meta", con)
+    if path.suffix == ".db" or path.suffix == ".sqlite":
+        con = sqlite3.connect(path)
+        meta = pd.read_sql_query("SELECT * from _meta", con)
+    elif path.suffix == ".duckdb":
+        con = ddb.connect(path)
+        meta = con.sql("SELECT * from _meta").to_df()
+    else:
+        raise ValueError(f"Unsupported file type: {path}")
 
-    deli = meta.get('data_delivered_at')
-    trans = meta.get('table_transmitted_at')
-    creat = meta['table_created_at']
-    tag = meta.get('tag')
-
+    deli = meta.get("data_delivered_at")
+    trans = meta.get("table_transmitted_at")
+    creat = meta["table_created_at"]
+    tag = meta.get("tag")
 
     print(f"{'sqlite db file:': <25}{path.name}")
     if tag is not None:
@@ -351,14 +357,18 @@ def print_meta(path_sqlite: str | Path) -> None:
         print(f"{'sql table created:': <25}{creat[0][:19]}")
     if trans is not None:
         print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
-    print(f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}")
+    print(
+        f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}"
+    )
+
+    con.close()
     return
 
 
 def load_from_mssql(
-    query: str, 
+    query: str,
     host: str,  # This will be either the host name or the environment variable name
-    db: str,    # This will be either the db name or the environment variable name
+    db: str,  # This will be either the db name or the environment variable name
     use_env: bool = True,
 ) -> pd.DataFrame:
     """
@@ -369,7 +379,7 @@ def load_from_mssql(
         host (str): The SQL server host or the environment variable name for it.
         db (str): The database name or the environment variable name for it.
         use_env (bool): Whether to use environment variables for the connection. Default is True.
-    
+
     Returns:
         pd.DataFrame: The loaded data in a DataFrame.
     """
@@ -381,10 +391,12 @@ def load_from_mssql(
 
     # Ensure host and db are provided
     if not host or not db:
-        raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
+        raise ValueError(
+            "❌ Both host and db must be provided either through environment variables or directly as arguments."
+        )
 
     # Establish SQL connection
-    con = connect_sql(host=host, db=db, dbms='mssql')
+    con = connect_sql(host=host, db=db, dbms="mssql")
 
     # Load the DataFrame from SQL
     df = pd.read_sql(query, con)
@@ -394,10 +406,10 @@ def load_from_mssql(
 
 
 def save_to_mssql(
-    df: pd.DataFrame, 
+    df: pd.DataFrame,
     con: object = None,
     host: str = "",  # This will be either the host name or the environment variable name
-    db: str = "",    # This will be either the db name or the environment variable name
+    db: str = "",  # This will be either the db name or the environment variable name
     table_name: str = "Table",
     schema_name: str = "dbo",
     use_env: bool = True,
@@ -421,13 +433,15 @@ def save_to_mssql(
         ask_user (bool): Whether to ask the user for confirmation. Default is True.
     """
     df_ = df.copy()
-    
+
     if ask_user:
-        user_input = input(f"🚨 Do you want to write the data to the MSSQL table [{schema_name}].[{table_name}] on [{host}].[{db}]? ([y]/n): ")
+        user_input = input(
+            f"🚨 Do you want to write the data to the MSSQL table [{schema_name}].[{table_name}] on [{host}].[{db}]? ([y]/n): "
+        )
         if user_input.lower() != "y":
             print("❌ Aborted.")
             return
-    
+
     # Establish SQL connection
     if con is None:
         if use_env:
@@ -437,20 +451,24 @@ def save_to_mssql(
             db = os.getenv(db)
         # Ensure host and db are provided
         if not host or not db:
-            raise ValueError("❌ Both host and db must be provided either through environment variables or directly as arguments.")
-        con = connect_sql(host=host, db=db, dbms='mssql')
+            raise ValueError(
+                "❌ Both host and db must be provided either through environment variables or directly as arguments."
+            )
+        con = connect_sql(host=host, db=db, dbms="mssql")
 
     # add timestamp column to df
     if add_timestamp and "created_at" not in df_.columns:
-        df_["created_at"] = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        df_["created_at"] = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # add id column to df
     if add_id and "id" not in df_.columns:
-        df_.insert(0, 'id', range(1, len(df_) + 1))
+        df_.insert(0, "id", range(1, len(df_) + 1))
 
     # Save the DataFrame to SQL
     print("⏳ writing data to MSSQL...")
-    df_.to_sql(table_name, schema=schema_name, con=con, if_exists='replace', index=False)
+    df_.to_sql(
+        table_name, schema=schema_name, con=con, if_exists="replace", index=False
+    )
     print(f"✅ data written to [{schema_name}].[{table_name}] on [{host}].[{db}]")
     return
 
@@ -491,7 +509,6 @@ def load_file_to_duckdb(
         # * resolve possible home in path
         if "~" in path:
             path = Path(expanduser(path))
-    
 
     if path.endswith((".csv", ".txt")):
         # * ; is default separator
@@ -505,63 +522,72 @@ def load_file_to_duckdb(
     db = con.from_df(df)
     return db
 
+
 def mssql_to_duckdb(
-   mssql_conn: sqlalchemy.engine.Connection,
-   tables: List[str],
-   schema: Optional[str] = None,
-   duckdb_path: Union[str, Path] = "output.duckdb",
-   debug: bool = False,
-   chunksize: Optional[int] = 100_000
+    mssql_conn: sqlalchemy.engine.Connection,
+    tables: List[str],
+    schema: Optional[str] = None,
+    duckdb_path: Union[str, Path] = "output.duckdb",
+    debug: bool = False,
+    chunksize: Optional[int] = 100_000,
 ) -> None:
-   """
-   Converts selected tables from a MSSQL database to a DuckDB database with optional chunking.
+    """
+    Converts selected tables from a MSSQL database to a DuckDB database with optional chunking.
 
-   Args:
-       mssql_conn (sqlalchemy.engine.Connection): An active SQLAlchemy MSSQL connection object.
-       tables (List[str]): List of table names to export.
-       schema (str | None, optional): If set, prepends schema to table names. If None or "", assumes schema is in the table name.
-       duckdb_path (str | Path, optional): Output DuckDB file path. Defaults to "output.duckdb".
-       debug (bool, optional): If True, only exports top 1000 rows. Defaults to False.
-       chunksize (int | None, optional): Number of rows per chunk. If None, loads entire table at once. Defaults to 100,000.
+    Args:
+        mssql_conn (sqlalchemy.engine.Connection): An active SQLAlchemy MSSQL connection object.
+        tables (List[str]): List of table names to export.
+        schema (str | None, optional): If set, prepends schema to table names. If None or "", assumes schema is in the table name.
+        duckdb_path (str | Path, optional): Output DuckDB file path. Defaults to "output.duckdb".
+        debug (bool, optional): If True, only exports top 1000 rows. Defaults to False.
+        chunksize (int | None, optional): Number of rows per chunk. If None, loads entire table at once. Defaults to 100,000.
 
-   Returns:
-       None
-   """
-   duckdb_path = Path(duckdb_path)
-   print(f"Exporting from MSSQL to DuckDB: {duckdb_path}")
+    Returns:
+        None
+    """
+    duckdb_path = Path(duckdb_path)
+    print(f"Exporting from MSSQL to DuckDB: {duckdb_path}")
 
     # * as_posix to avoid issues on windows
-   duckdb_conn = ddb.connect(duckdb_path.as_posix())
+    duckdb_conn = ddb.connect(duckdb_path.as_posix())
 
-   try:
-       for table in tables:
-           full_table_name = f"{schema}.{table}" if schema else table
-           print(f"Exporting {full_table_name}...")
+    try:
+        for table in tables:
+            full_table_name = f"{schema}.{table}" if schema else table
+            print(f"Exporting {full_table_name}...")
 
-           if debug:
-               query = f"SELECT TOP 1000 * FROM {full_table_name}"
-               df = pd.read_sql_query(query, mssql_conn)
-               table_name_only = table.split('.')[-1].strip('[]')
-               duckdb_conn.register("df_view", df)
-               duckdb_conn.execute(f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view")
-               duckdb_conn.unregister("df_view")
-           else:
-               query = f"SELECT * FROM {full_table_name}"
-               table_name_only = table.split('.')[-1].strip('[]')
-               first_chunk = True
+            if debug:
+                query = f"SELECT TOP 1000 * FROM {full_table_name}"
+                df = pd.read_sql_query(query, mssql_conn)
+                table_name_only = table.split(".")[-1].strip("[]")
+                duckdb_conn.register("df_view", df)
+                duckdb_conn.execute(
+                    f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view"
+                )
+                duckdb_conn.unregister("df_view")
+            else:
+                query = f"SELECT * FROM {full_table_name}"
+                table_name_only = table.split(".")[-1].strip("[]")
+                first_chunk = True
 
-               for chunk in pd.read_sql_query(query, mssql_conn, chunksize=chunksize):
-                   duckdb_conn.register("df_view", chunk)
+                for chunk in pd.read_sql_query(query, mssql_conn, chunksize=chunksize):
+                    duckdb_conn.register("df_view", chunk)
 
-                   if first_chunk:
-                       duckdb_conn.execute(f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view")
-                       first_chunk = False
-                   else:
-                       duckdb_conn.execute(f"INSERT INTO {table_name_only} SELECT * FROM df_view")
+                    if first_chunk:
+                        duckdb_conn.execute(
+                            f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view"
+                        )
+                        first_chunk = False
+                    else:
+                        duckdb_conn.execute(
+                            f"INSERT INTO {table_name_only} SELECT * FROM df_view"
+                        )
 
-                   duckdb_conn.unregister("df_view")
+                    duckdb_conn.unregister("df_view")
 
-       print(f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {duckdb_path}")
+        print(
+            f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {duckdb_path}"
+        )
 
-   finally:
-       duckdb_conn.close()
+    finally:
+        duckdb_conn.close()
