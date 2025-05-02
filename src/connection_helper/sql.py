@@ -177,7 +177,7 @@ def load_sql_to_sqlite(
     con_sqlite.close()
     return
 
-
+# todo handle path arguments in single logic
 def load_sqlite_to_parquet(
     file_sqlite: str,
     dir_local: str,
@@ -338,7 +338,7 @@ def print_meta(path_sqlite: str | Path) -> None:
         con = sqlite3.connect(path)
         meta = pd.read_sql_query("SELECT * from _meta", con)
     elif path.suffix == ".duckdb":
-        con = ddb.connect(path)
+        con = ddb.connect(path.as_posix())
         meta = con.sql("SELECT * from _meta").to_df()
     else:
         raise ValueError(f"Unsupported file type: {path}")
@@ -542,7 +542,7 @@ def sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
 
     # Open connections
     sqlite_conn = sqlite3.connect(sqlite_path)
-    duckdb_conn = ddb.connect(duckdb_path)
+    duckdb_conn = ddb.connect(duckdb_path.as_posix())
 
     try:
         # Get table list
