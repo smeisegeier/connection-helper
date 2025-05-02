@@ -39,7 +39,7 @@ def connect_sql(
         host (str, optional): The host name or IP address of the database server. Defaults to an empty string.
         user (str, optional): The username for authentication. Defaults to an empty string.
         pw (str, optional): The password for authentication. Defaults to an empty string.
-        use_env (bool, optional): Whether to use environment variables for the connection. Defaults to True. If provided, host, db, user, pw will be ignored.
+        use_env (bool, optional): Whether to use environment variables for the connection. Defaults to True. If provided, host, db, user, pw will be ignored. Example: If there is an item "SQL_HOST" in .env, use: (host = "SQL_HOST", use_env = True)
         dbms (Literal['mssql', 'sqlite','postgres'], optional): The type of database management system. Defaults to 'mssql'.
         ensure_db_exists (bool, optional): Specifies whether to create the database if it does not exist. Defaults to False.
 
@@ -66,8 +66,11 @@ def connect_sql(
         load_dotenv(find_dotenv())
         host = os.getenv(host)
         db = os.getenv(db)
-        user = os.getenv(user)
-        pw = os.getenv(pw)
+        # ! a "" str will be ignored in conn str, a None str wont
+        if user:
+            user = os.getenv(user)
+        if pw:
+            pw = os.getenv(pw)
 
     # Ensure host and db are provided
     if not host or not db:
@@ -99,6 +102,7 @@ def connect_sql(
             print(f"db {db} exists")
 
     # * now connect
+    con = None
     try:
         con = engine.connect()
     except Exception as e:
@@ -412,7 +416,7 @@ def load_from_mssql(
         )
 
     # Establish SQL connection
-    con = connect_sql(host=host, db=db, dbms="mssql")
+    con = connect_sql(host=host, db=db, dbms="mssql", use_env=False)
 
     # Load the DataFrame from SQL
     df = pd.read_sql(query, con)
@@ -470,7 +474,7 @@ def save_to_mssql(
             raise ValueError(
                 "❌ Both host and db must be provided either through environment variables or directly as arguments."
             )
-        con = connect_sql(host=host, db=db, dbms="mssql")
+        con = connect_sql(host=host, db=db, dbms="mssql", use_env=False)
 
     # add timestamp column to df
     if add_timestamp and "created_at" not in df_.columns:
