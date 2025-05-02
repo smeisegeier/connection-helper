@@ -23,10 +23,11 @@ def is_url(url: str) -> bool:
 
 
 def connect_sql(
-    db: str,
+    db: str = "",
     host: str = "",
     user: str = "",
     pw: str = "",
+    use_env: bool = True,
     dbms: Literal["mssql", "sqlite", "postgres"] = "mssql",
     ensure_db_exists: bool = False,
 ) -> object:
@@ -38,6 +39,7 @@ def connect_sql(
         host (str, optional): The host name or IP address of the database server. Defaults to an empty string.
         user (str, optional): The username for authentication. Defaults to an empty string.
         pw (str, optional): The password for authentication. Defaults to an empty string.
+        use_env (bool, optional): Whether to use environment variables for the connection. Defaults to True. If provided, host, db, user, pw will be ignored.
         dbms (Literal['mssql', 'sqlite','postgres'], optional): The type of database management system. Defaults to 'mssql'.
         ensure_db_exists (bool, optional): Specifies whether to create the database if it does not exist. Defaults to False.
 
@@ -58,6 +60,20 @@ def connect_sql(
                 )
 
     """
+
+    if use_env:
+        # Load environment variables
+        load_dotenv(find_dotenv())
+        host = os.getenv(host)
+        db = os.getenv(db)
+        user = os.getenv(user)
+        pw = os.getenv(pw)
+
+    # Ensure host and db are provided
+    if not host or not db:
+        raise ValueError(
+            "❌ Both host and db must be provided either through environment variables or directly as arguments."
+        )
 
     if dbms == "mssql":
         url = f"mssql://{user}:{pw}@{host}/{db}?driver=ODBC Driver 17 for SQL Server"
