@@ -234,7 +234,7 @@ def load_sqlite_to_parquet(
     db_name = os.path.basename(file_sqlite).split(".")[0]
 
     # * connect to db
-    con = ddb.connect(file_sqlite)
+    con = ddb.connect(file_sqlite, read_only=True)
 
     # * retrieve all tables. this cant be filtered by database_name (weird effect)
     df_db = con.sql("SELECT * FROM duckdb_tables();").to_df()
@@ -358,7 +358,7 @@ def print_meta(path_sqlite: str | Path) -> None:
         con = sqlite3.connect(path)
         meta = pd.read_sql_query("SELECT * from _meta", con)
     elif path.suffix == ".duckdb":
-        con = ddb.connect(path.as_posix())
+        con = ddb.connect(path.as_posix(), read_only=True)
         meta = con.sql("SELECT * from _meta").to_df()
     else:
         raise ValueError(f"Unsupported file type: {path}")
