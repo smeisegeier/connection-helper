@@ -8,13 +8,15 @@ import duckdb as ddb
 from pathlib import Path
 import datetime as dt
 
+import sqlalchemy
 from sqlalchemy import create_engine, text
 import sqlalchemy.engine
 from sqlalchemy_utils import create_database, database_exists
 
 from typing import List, Optional, Union, Literal
-
 from dotenv import load_dotenv, find_dotenv
+
+
 
 
 def is_url(url: str) -> bool:
@@ -338,12 +340,13 @@ def unpack_files_to_duckdb(
     return out
 
 
+
 def print_meta(path_sqlite: str | Path) -> None:
     """
-    Prints metadata information from a given SQLite database file.
+    Prints metadata information from a given SQLite or DuckDB database file.
 
     Args:
-        path_sqlite (str | Path): The path to the SQLite database file.
+        path_sqlite (str | Path): The path to the database file.
 
     Returns:
         None
@@ -354,36 +357,46 @@ def print_meta(path_sqlite: str | Path) -> None:
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path_sqlite}")
 
-    if path.suffix == ".db" or path.suffix == ".sqlite":
-        con = sqlite3.connect(path)
-        meta = pd.read_sql_query("SELECT * from _meta", con)
-    elif path.suffix == ".duckdb":
-        con = ddb.connect(path.as_posix(), read_only=True)
-        meta = con.sql("SELECT * from _meta").to_df()
-    else:
-        raise ValueError(f"Unsupported file type: {path}")
+    con = None
+    try:
+        if path.suffix in {".db", ".sqlite"}:
+            con = sqlite3.connect(path)
+            try:
+                meta = pd.read_sql_query("SELECT * FROM _meta", con)
+            except Exception:
+                con.close()
+                raise
+        elif path.suffix == ".duckdb":
+            con = ddb.connect(path.as_posix(), read_only=True)
+            try:
+                meta = con.sql("SELECT * FROM _meta").to_df()
+            except Exception:
+                con.close()
+                raise
+        else:
+            raise ValueError(f"Unsupported file type: {path}")
 
-    deli = meta.get("data_delivered_at")
-    trans = meta.get("table_transmitted_at")
-    creat = meta["table_created_at"]
-    tag = meta.get("tag")
+        deli = meta.get("data_delivered_at")
+        trans = meta.get("table_transmitted_at")
+        creat = meta["table_created_at"]
+        tag = meta.get("tag")
 
-    print(f"{'sqlite db file:': <25}{path.name}")
-    if tag is not None:
-        print(f"{'data tag:': <25}{tag[0]}")
-    if deli is not None:
-        print(f"{'last kkr data import:': <25}{deli[0][:19]}")
-    if creat is not None:
-        print(f"{'sql table created:': <25}{creat[0][:19]}")
-    if trans is not None:
-        print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
-    print(
-        f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}"
-    )
+        print(f"{'sqlite db file:': <25}{path.name}")
+        if tag is not None:
+            print(f"{'data tag:': <25}{tag[0]}")
+        if deli is not None:
+            print(f"{'last kkr data import:': <25}{deli[0][:19]}")
+        if creat is not None:
+            print(f"{'sql table created:': <25}{creat[0][:19]}")
+        if trans is not None:
+            print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
+        print(
+            f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}"
+        )
 
-    con.close()
-    return
-
+    finally:
+        if con is not None:
+            con.close()
 
 def load_from_mssql(
     query: str,
@@ -543,7 +556,7 @@ def load_file_to_duckdb(
     return db
 
 
-def sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
+def load_sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
     """
     Converts a SQLite database to a DuckDB database.
 
@@ -583,76 +596,82 @@ def sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
     finally:
         sqlite_conn.close()
         duckdb_conn.close()
+        return
 
-
-
-def mssql_to_duckdb(
-    mssql_conn: sqlalchemy.engine.Connection,
-    tables: List[str],
+def load_sql_to_duckdb(
+    con_source: sqlalchemy.engine.Connection,
+    list_tables: List[str],
+    dict_meta: dict = None,
     schema: Optional[str] = None,
-    duckdb_path: Union[str, Path] = "output.duckdb",
+    file_duckdb: Union[str, Path] = "database.duckdb",
     debug: bool = False,
     chunksize: Optional[int] = 100_000,
-) -> None:
+    ) -> None:
     """
     Converts selected tables from a MSSQL database to a DuckDB database with optional chunking.
 
     Args:
-        mssql_conn (sqlalchemy.engine.Connection): An active SQLAlchemy MSSQL connection object.
-        tables (List[str]): List of table names to export.
+        con_source (sqlalchemy.engine.Connection): An active SQLAlchemy MSSQL connection object.
+        list_tables (List[str]): List of table names to export.
+        dict_meta (dict, optional): A dictionary containing metadata to be written to the SQLite database. Defaults to None.
         schema (str | None, optional): If set, prepends schema to table names. If None or "", assumes schema is in the table name.
-        duckdb_path (str | Path, optional): Output DuckDB file path. Defaults to "output.duckdb".
+        file_duckdb (str | Path, optional): Output DuckDB file path. Defaults to "database.duckdb".
         debug (bool, optional): If True, only exports top 1000 rows. Defaults to False.
         chunksize (int | None, optional): Number of rows per chunk. If None, loads entire table at once. Defaults to 100,000.
 
     Returns:
         None
     """
-    duckdb_path = Path(duckdb_path)
-    print(f"Exporting from MSSQL to DuckDB: {duckdb_path}")
+    file_duckdb = Path(file_duckdb)
+    print(f"Exporting from MSSQL to DuckDB: {file_duckdb}")
 
-    # * as_posix to avoid issues on windows
-    duckdb_conn = ddb.connect(duckdb_path.as_posix())
+    duckdb_con = ddb.connect(file_duckdb.as_posix())
+
+    if dict_meta is not None:
+        df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
+        duckdb_con.execute("DROP TABLE IF EXISTS _meta")
+        duckdb_con.register("df_meta", df_meta)
+        duckdb_con.execute("CREATE TABLE _meta AS SELECT * FROM df_meta")
 
     try:
-        for table in tables:
-            full_table_name = f"{schema}.{table}" if schema else table
-            print(f"Exporting {full_table_name}...")
+        for item in list_tables:
+            table = item[0]
+            source_table_name = f"{schema}.{table}" if schema else table
+            print(f"Exporting {source_table_name}...")
+            target_table_name = item[1]
 
-            if debug:
-                query = f"SELECT TOP 1000 * FROM {full_table_name}"
-                df = pd.read_sql_query(query, mssql_conn)
-                table_name_only = table.split(".")[-1].strip("[]")
-                duckdb_conn.register("df_view", df)
-                duckdb_conn.execute(
-                    f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view"
+            query = f"SELECT TOP 1000 * FROM {source_table_name}" if debug else f"SELECT * FROM {source_table_name}"
+            first_chunk = True
+
+            # result_proxy = con_source.execution_options(stream_results=True).execute(query)
+            result_proxy = con_source.execution_options(stream_results=True).execute(text(query))
+
+            while True:
+                # rows = result_proxy.fetchmany(chunksize)
+                rows = [tuple(row) for row in result_proxy.fetchmany(chunksize)]
+                if not rows:
+                    break
+
+                column_names = result_proxy.keys()
+
+                # * Create the insert SQL template with placeholders
+                placeholders = ','.join(['?'] * len(column_names))
+
+                if first_chunk:
+                    # * Try to infer types from the first chunk manually
+                    create_stmt = f"CREATE TABLE {target_table_name} ({', '.join(f'{col} VARCHAR' for col in column_names)})"
+                    duckdb_con.execute(f"DROP TABLE IF EXISTS {target_table_name}")
+                    duckdb_con.execute(create_stmt)
+                    first_chunk = False
+
+                duckdb_con.executemany(
+                    f"INSERT INTO {target_table_name} VALUES ({placeholders})",
+                    rows
                 )
-                duckdb_conn.unregister("df_view")
-            else:
-                query = f"SELECT * FROM {full_table_name}"
-                table_name_only = table.split(".")[-1].strip("[]")
-                first_chunk = True
-
-                for chunk in pd.read_sql_query(query, mssql_conn, chunksize=chunksize):
-                    duckdb_conn.register("df_view", chunk)
-
-                    if first_chunk:
-                        duckdb_conn.execute(
-                            f"CREATE TABLE {table_name_only} AS SELECT * FROM df_view"
-                        )
-                        first_chunk = False
-                    else:
-                        duckdb_conn.execute(
-                            f"INSERT INTO {table_name_only} SELECT * FROM df_view"
-                        )
-
-                    duckdb_conn.unregister("df_view")
-
-        print(
-            f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {duckdb_path}"
-        )
 
     finally:
-        duckdb_conn.close()
-        
-
+        duckdb_con.close()
+        print(
+            f"✅ Export {'(debug mode)' if debug else ''} complete. DuckDB file: {file_duckdb}"
+        )
+        return
