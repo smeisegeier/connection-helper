@@ -30,7 +30,7 @@ from connection_helper import sql, pgp, sec
   - `save_to_mssql()` save data from a Pandas DataFrame to an MSSQL database
   - `load_file_to_duckdb()` load data from various sources into a duckdb database, using pandas read functions (_experimental_)
   - `load_sqlite_to_duckdb()` converts a SQLite database to a DuckDB database
-  - `load_sql_to_duckdb()` converts a SQL database to a DuckDB database
+  - `load_mssql_to_duckdb()` converts a MSSQL database to a DuckDB database
 
 - `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some convenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
   - `encrypt()` a message for one or more recipient(s) with a public key
