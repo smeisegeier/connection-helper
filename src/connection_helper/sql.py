@@ -343,8 +343,7 @@ def unpack_files_to_duckdb(
     return out
 
 
-
-def print_meta(path_sqlite: str | Path) -> None:
+def print_meta(path: str | Path) -> None:
     """
     Prints metadata information from a given SQLite or DuckDB database file.
 
@@ -355,10 +354,10 @@ def print_meta(path_sqlite: str | Path) -> None:
         None
     """
     # * resolve possible ~ in path
-    path = Path(expanduser(path_sqlite))
+    path = Path(expanduser(path))
 
     if not path.exists():
-        raise FileNotFoundError(f"File not found: {path_sqlite}")
+        raise FileNotFoundError(f"File not found: {path}")
 
     con = None
     try:
@@ -381,7 +380,7 @@ def print_meta(path_sqlite: str | Path) -> None:
 
         deli = meta.get("data_delivered_at")
         trans = meta.get("table_transmitted_at")
-        creat = meta["table_created_at"]
+        creat = meta.get("table_created_at")
         tag = meta.get("tag")
 
         print(f"{'sqlite db file:': <25}{path.name}")
@@ -602,376 +601,388 @@ def load_sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
         return
 
 
+
+
+
 def load_mssql_to_duckdb(
-       con_source,
-       file_db: str,
-       list_tables: list[str],
-       dict_meta: dict = None,
-       delete_csv_after: bool = True,
-       top_n_rows: int = 0,
-       verbose: bool = True, # Retain verbose for general function progress messages
-       duckdb_column_type_overrides: dict = None, # Dictionary for overriding DuckDB column types
+      con_source,
+      file_db: str,
+      list_tables: list[str],
+      dict_meta: dict = None,
+      delete_csv_after: bool = True,
+      top_n_rows: int = 0,
+      verbose: bool = True, # Retain verbose for general function progress messages
+      duckdb_column_type_overrides: dict = None, # Dictionary for overriding DuckDB column types
 ) -> None:
-   """
-   Load SQL tables from a source MSSQL database into a DuckDB database using bcp for export.
-   This function leverages bcp for efficient data extraction and DuckDB's COPY FROM for fast ingestion,
-   explicitly defining schema to handle bcp's lack of header output, ensuring NULLs in character
-   columns are converted to empty strings. It includes a post-processing step to remove
-   literal '\0' characters from the CSV files. BCP's raw stdout/stderr output is now suppressed.
+  """
+  Load SQL tables from a source MSSQL database into a DuckDB database using bcp for export.
+  This function leverages bcp for efficient data extraction and DuckDB's COPY FROM for fast ingestion,
+  explicitly defining schema to handle bcp's lack of header output, ensuring NULLs in character
+  columns are converted to empty strings. It includes a post-processing step to remove
+  literal '\0' characters from the CSV files. BCP's raw stdout/stderr output is now suppressed.
 
-   Args:
-       con_source (object): The connection object to the source MSSQL database (e.g., SQLAlchemy engine or Connection).
-                            Used to extract the SQL Server host and database name for bcp.
-       file_db (str): The path to the DuckDB database file (e.g., 'my_database.duckdb').
-       list_tables (list[str]): A list of SQL tables to load. Each table can be specified as a string
-                                or a list of two strings, where the first string is the table name
-                                in the source database and the second string is the table name in
-                                the DuckDB database (optional).
-       dict_meta (dict, optional): A dictionary containing metadata to be written to the DuckDB database.
-                                   Defaults to None.
-       delete_csv_after (bool, optional): If True, the intermediate CSV files created by bcp will be
-                                          deleted after successful loading into DuckDB. Defaults to True.
-       top_n_rows (int, optional): The number of rows to load from each table. Defaults to 0 (all rows).
-                                   This limit is applied directly in the bcp query.
-       verbose (bool, optional): Whether to print general progress messages. Defaults to True.
-       duckdb_column_type_overrides (dict, optional): A dictionary where keys are column names (case-sensitive)
-                                                     and values are the desired DuckDB data types.
-                                                     These types will override the inferred types from MSSQL.
-                                                     Defaults to None.
+  Args:
+      con_source (object): The connection object to the source MSSQL database (e.g., SQLAlchemy engine or Connection).
+                           Used to extract the SQL Server host and database name for bcp.
+      file_db (str): The path to the DuckDB database file (e.g., 'my_database.duckdb').
+      list_tables (list[str]): A list of SQL tables to load. Each table can be specified as a string
+                               or a list of two strings, where the first string is the table name
+                               in the source database and the second string is the table name in
+                               the DuckDB database (optional).
+      dict_meta (dict, optional): A dictionary containing metadata to be written to the DuckDB database.
+                                  Defaults to None.
+      delete_csv_after (bool, optional): If True, the intermediate CSV files created by bcp will be
+                                         deleted after successful loading into DuckDB. Defaults to True.
+      top_n_rows (int, optional): The number of rows to load from each table. Defaults to 0 (all rows).
+                                  This limit is applied directly in the bcp query.
+      verbose (bool, optional): Whether to print general progress messages. Defaults to True.
+      duckdb_column_type_overrides (dict, optional): A dictionary where keys are column names (case-sensitive)
+                                                    and values are the desired DuckDB data types.
+                                                    These types will override the inferred types from MSSQL.
+                                                    Defaults to None.
 
-                                                     Available DuckDB Data Types:
-                                                     - BOOLEAN
-                                                     - TINYINT, SMALLINT, INTEGER, BIGINT, HUGEINT
-                                                     - REAL, DOUBLE
-                                                     - DECIMAL(precision, scale) or NUMERIC(precision, scale)
-                                                     - VARCHAR
-                                                     - BLOB
-                                                     - DATE
-                                                     - TIME
-                                                     - TIMESTAMP (alias for TIMESTAMP_US)
-                                                     - TIMESTAMP_S, TIMESTAMP_S, TIMESTAMP_NS, TIMESTAMP_TZ
-                                                     - UUID
-                                                     - INTERVAL
-                                                     - ENUM (must be explicitly defined, e.g., ENUM('A', 'B'))
-                                                     - BIT
-                                                     - INET
-                                                     - STRUCT(field_name type, ...)
-                                                     - LIST(type) or ARRAY(type)
-                                                     - MAP(key_type, value_type)
+                                                    Available DuckDB Data Types:
+                                                    - BOOLEAN
+                                                    - TINYINT, SMALLINT, INTEGER, BIGINT, HUGEINT
+                                                    - REAL, DOUBLE
+                                                    - DECIMAL(precision, scale) or NUMERIC(precision, scale)
+                                                    - VARCHAR
+                                                    - BLOB
+                                                    - DATE
+                                                    - TIME
+                                                    - TIMESTAMP (alias for TIMESTAMP_US)
+                                                    - TIMESTAMP_S, TIMESTAMP_S, TIMESTAMP_NS, TIMESTAMP_TZ
+                                                    - UUID
+                                                    - INTERVAL
+                                                    - ENUM (must be explicitly defined, e.g., ENUM('A', 'B'))
+                                                    - BIT
+                                                    - INET
+                                                    - STRUCT(field_name type, ...)
+                                                    - LIST(type) or ARRAY(type)
+                                                    - MAP(key_type, value_type)
 
-   Returns:
-       None
+  Returns:
+      None
 
-   Description:
-       This function performs the following steps:
-       1. Checks if the target DuckDB file already exists.
-       2. Establishes a connection to the DuckDB database.
-       3. Writes metadata to the DuckDB database if dict_meta is provided.
-       4. For each table:
-          a. Extracts column names and types from the source SQL Server database in the correct order.
-          b. Creates the table in DuckDB with the correct schema, applying type overrides if provided.
-          c. Constructs a bcp command to export data from MSSQL to a temporary CSV file
-             in a '.local' directory, using a trusted connection, ensuring NULLs in character
-             columns are converted to empty strings and using tab as a delimiter.
-          d. Executes the bcp command using subprocess (output suppressed).
-          e. **Post-processes the CSV file to remove any literal '\0' bytes.**
-          f. Copies the data from the cleaned CSV into the pre-defined DuckDB table (without header inference).
-          g. Optionally deletes the CSV file.
-       5. Closes the DuckDB connection.
-   """
-   # Capture the start time when the function begins execution
-   function_start_time = datetime.now()
+  Description:
+      This function performs the following steps:
+      1. Checks if the target DuckDB file already exists.
+      2. Establishes a connection to the DuckDB database.
+      3. Writes metadata to the DuckDB database if dict_meta is provided.
+      4. For each table:
+         a. Extracts column names and types from the source SQL Server database in the correct order.
+         b. Creates the table in DuckDB with the correct schema, applying type overrides if provided.
+         c. Constructs a bcp command to export data from MSSQL to a temporary CSV file
+            in a '.local' directory, using a trusted connection, ensuring NULLs in character
+            columns are converted to empty strings and using tab as a delimiter.
+         d. Executes the bcp command using subprocess (output suppressed).
+         e. **Post-processes the CSV file to remove any literal '\0' bytes.**
+         f. Copies the data from the cleaned CSV into the pre-defined DuckDB table (without header inference).
+         g. Optionally deletes the CSV file.
+      5. Closes the DuckDB connection.
+  """
+  # Capture the start time when the function begins execution
+  function_start_time = datetime.now()
 
-   # Helper to get relative timestamp for verbose output
-   def get_relative_timestamp():
-       elapsed_time = datetime.now() - function_start_time
-       total_seconds = int(elapsed_time.total_seconds())
-       hours = total_seconds // 3600
-       minutes = (total_seconds % 3600) // 60
-       seconds = total_seconds % 60
-       return f"[{hours:02d}:{minutes:02d}:{seconds:02d}]"
+  # Helper to get relative timestamp for verbose output
+  def get_relative_timestamp():
+      elapsed_time = datetime.now() - function_start_time
+      total_seconds = int(elapsed_time.total_seconds())
+      hours = total_seconds // 3600
+      minutes = (total_seconds % 3600) // 60
+      seconds = total_seconds % 60
+      return f"[{hours:02d}:{minutes:02d}:{seconds:02d}]"
 
-   # Initialize overrides dictionary if not provided
-   if duckdb_column_type_overrides is None:
-       duckdb_column_type_overrides = {}
+  # Initialize overrides dictionary if not provided
+  if duckdb_column_type_overrides is None:
+      duckdb_column_type_overrides = {}
 
-   # * Check if db already exists
-   if os.path.exists(file_db):
-       print(f"{get_relative_timestamp()} ❌ {file_db} already exists. Exiting.")
-       return
+  # * Check if db already exists
+  if os.path.exists(file_db):
+      print(f"{get_relative_timestamp()} ❌ {file_db} already exists. Exiting.")
+      return
 
-   # * Establish connection to DuckDB
-   con_duckdb = ddb.connect(database=file_db)
+  # * Establish connection to DuckDB
+  con_duckdb = ddb.connect(database=file_db)
 
-   # * Create .local directory for temporary CSVs if it doesn't exist
-   local_dir = ".local"
-   os.makedirs(local_dir, exist_ok=True)
-   if verbose:
-       print(f"{get_relative_timestamp()} Ensuring temporary CSV directory exists: {local_dir}")
+  # * Create .local directory for temporary CSVs if it doesn't exist
+  local_dir = ".local"
+  os.makedirs(local_dir, exist_ok=True)
+  if verbose:
+      print(f"{get_relative_timestamp()} Ensuring temporary CSV directory exists: {local_dir}")
 
-   # * Write meta table if dict was given
-   if dict_meta is not None:
+  # * Write meta table if dict was given
+#    if dict_meta is not None:
+#        if verbose:
+#            print(f"{get_relative_timestamp()} Creating metadata table '_meta'...")
+#        try:
+#            con_duckdb.execute("CREATE TABLE IF NOT EXISTS _meta (key VARCHAR, value VARCHAR);")
+#            meta_data_to_insert = [(k, str(v)) for k, v in dict_meta.items()]
+#            con_duckdb.executemany("INSERT INTO _meta VALUES (?, ?);", meta_data_to_insert)
+#            if verbose:
+#                print(f"{get_relative_timestamp()} Metadata table '_meta' created and populated.")
+#        except ddb.Error as e:
+#            print(f"{get_relative_timestamp()} Error creating or populating _meta table: {e}")
+
+  if dict_meta is not None:
        if verbose:
            print(f"{get_relative_timestamp()} Creating metadata table '_meta'...")
-       try:
-           con_duckdb.execute("CREATE TABLE IF NOT EXISTS _meta (key VARCHAR, value VARCHAR);")
-           meta_data_to_insert = [(k, str(v)) for k, v in dict_meta.items()]
-           con_duckdb.executemany("INSERT INTO _meta VALUES (?, ?);", meta_data_to_insert)
-           if verbose:
-               print(f"{get_relative_timestamp()} Metadata table '_meta' created and populated.")
-       except ddb.Error as e:
-           print(f"{get_relative_timestamp()} Error creating or populating _meta table: {e}")
-
-   # Extract server and database name from SQLAlchemy connection URL
-   server_name = None
-   database_name = None
-   try:
-       if hasattr(con_source, 'engine') and hasattr(con_source.engine, 'url'):
-           server_name = con_source.engine.url.host
-           database_name = con_source.engine.url.database
-       elif hasattr(con_source, 'url'): # For SQLAlchemy Engine objects
-           server_name = con_source.url.host
-           database_name = con_source.url.database
-       else:
-           raise ValueError("Could not extract server/database name from con_source. Please ensure it's an SQLAlchemy Engine or Connection object.")
-
-       if not server_name or not database_name:
-           raise ValueError("Extracted server name or database name is empty. Please ensure con_source is correctly configured.")
-   except AttributeError:
-       print(f"{get_relative_timestamp()} Error: con_source does not appear to be a valid SQLAlchemy Engine or Connection object.")
-       print(f"{get_relative_timestamp()} Please ensure con_source is an SQLAlchemy Engine or Connection object and provides host and database.")
-       return
-   except ValueError as e:
-       print(f"{get_relative_timestamp()} Error extracting server/database name: {e}")
-       return
-
-   is_list_nested = all(isinstance(i, list) for i in list_tables)
-
-   # Basic type mapping from common SQL Server types to DuckDB types
-   # This map might need to be extended based on the exact types in your MSSQL database
-   sql_to_duckdb_type_map = {
-       'bit': 'BOOLEAN',
-       'tinyint': 'TINYINT',
-       'smallint': 'SMALLINT',
-       'int': 'INTEGER',
-       'bigint': 'BIGINT',
-       'real': 'REAL', # 4-byte floating point
-       'float': 'DOUBLE', # 8-byte floating point
-       'decimal': 'DECIMAL',
-       'numeric': 'DECIMAL',
-       'money': 'DECIMAL(19,4)', # Common precision for money
-       'smallmoney': 'DECIMAL(10,4)',
-       'char': 'VARCHAR',
-       'varchar': 'VARCHAR',
-       'nvarchar': 'VARCHAR',
-       'text': 'VARCHAR',
-       'ntext': 'VARCHAR',
-       'date': 'DATE',
-       'datetime': 'TIMESTAMP',
-       'datetime2': 'TIMESTAMP',
-       'smalldatetime': 'TIMESTAMP',
-       'time': 'TIME',
-       'uniqueidentifier': 'UUID',
-       'binary': 'BLOB',
-       'varbinary': 'BLOB',
-       'image': 'BLOB',
-       # Add more as needed, e.g., xml, geography, geometry
-   }
-
-   for item in list_tables:
-       if is_list_nested:
-           table_sql_full = item[0]
-           table_friendly = (
-               item[1]
-               if item[1]
-               else item[0] if "." not in item[0] else item[0].split(".")[1]
-           )
-       else:
-           table_sql_full = item
-           table_friendly = item if "." not in item else item.split(".")[1]
-
-       # Extract schema and table name from table_sql_full for INFORMATION_SCHEMA query
-       sql_schema = 'dbo' # Default to 'dbo' if no schema specified
-       sql_table_name = table_sql_full.strip('[]')
-       if "." in table_sql_full:
-           parts = table_sql_full.split('.')
-           sql_schema = parts[0].strip('[]')
-           sql_table_name = parts[1].strip('[]')
+       df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
+       df_meta.to_sql("_meta", con_duckdb, if_exists="replace", index=False)
+       # con_duckdb.execute("DROP TABLE IF EXISTS _meta;") # Drop if exists
+       # con_duckdb.from_df(df_meta, "_meta") # Create from DataFrame
 
 
-       csv_filename = f"{table_friendly}.csv"
-       csv_path = os.path.join(local_dir, csv_filename)
+  # Extract server and database name from SQLAlchemy connection URL
+  server_name = None
+  database_name = None
+  try:
+      if hasattr(con_source, 'engine') and hasattr(con_source.engine, 'url'):
+          server_name = con_source.engine.url.host
+          database_name = con_source.engine.url.database
+      elif hasattr(con_source, 'url'): # For SQLAlchemy Engine objects
+          server_name = con_source.url.host
+          database_name = con_source.url.database
+      else:
+          raise ValueError("Could not extract server/database name from con_source. Please ensure it's an SQLAlchemy Engine or Connection object.")
 
-       if verbose:
-           print(f"{get_relative_timestamp()} Processing: {table_sql_full} -> {table_friendly}")
-           print(f"{get_relative_timestamp()}   Temporary CSV will be: {csv_path}")
+      if not server_name or not database_name:
+          raise ValueError("Extracted server name or database name is empty. Please ensure con_source is correctly configured.")
+  except AttributeError:
+      print(f"{get_relative_timestamp()} Error: con_source does not appear to be a valid SQLAlchemy Engine or Connection object.")
+      print(f"{get_relative_timestamp()} Please ensure con_source is an SQLAlchemy Engine or Connection object and provides host and database.")
+      return
+  except ValueError as e:
+      print(f"{get_relative_timestamp()} Error extracting server/database name: {e}")
+      return
 
-       # --- Get column names and types from source database for DuckDB schema ---
-       column_definitions = []
-       source_columns_with_types = [] # Store (column_name, sql_type) for bcp query construction
-       try:
-           # Step 1: Get actual column names in their exact order from MSSQL
-           # This ensures the order matches what bcp will output for SELECT *
-           test_query_for_order = f"SELECT TOP 1 * FROM {table_sql_full};"
-           if verbose:
-               print(f"{get_relative_timestamp()}   Getting column order from MSSQL using: {test_query_for_order}")
+  is_list_nested = all(isinstance(i, list) for i in list_tables)
 
-           proxy_for_cols = con_source.execute(text(test_query_for_order))
-           actual_col_names_ordered = list(proxy_for_cols.keys())
-           proxy_for_cols.close() # Explicitly close the result proxy to free the connection
+  # Basic type mapping from common SQL Server types to DuckDB types
+  # This map might need to be extended based on the exact types in your MSSQL database
+  sql_to_duckdb_type_map = {
+      'bit': 'BOOLEAN',
+      'tinyint': 'TINYINT',
+      'smallint': 'SMALLINT',
+      'int': 'INTEGER',
+      'bigint': 'BIGINT',
+      'real': 'REAL', # 4-byte floating point
+      'float': 'DOUBLE', # 8-byte floating point
+      'decimal': 'DECIMAL',
+      'numeric': 'DECIMAL',
+      'money': 'DECIMAL(19,4)', # Common precision for money
+      'smallmoney': 'DECIMAL(10,4)',
+      'char': 'VARCHAR',
+      'varchar': 'VARCHAR',
+      'nvarchar': 'VARCHAR',
+      'text': 'VARCHAR',
+      'ntext': 'VARCHAR',
+      'date': 'DATE',
+      'datetime': 'TIMESTAMP',
+      'datetime2': 'TIMESTAMP',
+      'smalldatetime': 'TIMESTAMP',
+      'time': 'TIME',
+      'uniqueidentifier': 'UUID',
+      'binary': 'BLOB',
+      'varbinary': 'BLOB',
+      'image': 'BLOB',
+      # Add more as needed, e.g., xml, geography, geometry
+  }
 
-           # Step 2: Query INFORMATION_SCHEMA for types based on these ordered names
-           for col_name in actual_col_names_ordered:
-               sql_type = None # Initialize sql_type
-               duckdb_type = None # Initialize duckdb_type
+  for item in list_tables:
+      if is_list_nested:
+          table_sql_full = item[0]
+          table_friendly = (
+              item[1]
+              if item[1]
+              else item[0] if "." not in item[0] else item[0].split(".")[1]
+          )
+      else:
+          table_sql_full = item
+          table_friendly = item if "." not in item else item.split(".")[1]
 
-               # Check for type override first
-               if col_name in duckdb_column_type_overrides:
-                   requested_duckdb_type = duckdb_column_type_overrides[col_name]
-                   duckdb_type = requested_duckdb_type
-                   sql_type = 'varchar' # Assume varchar in source for ISNULL logic if overridden
-                   if verbose:
-                       print(f"{get_relative_timestamp()}   Overriding type for column '{col_name}': MSSQL type assumed as VARCHAR, DuckDB type set to {duckdb_type}")
-               else:
-                   # Infer type from INFORMATION_SCHEMA if no override
-                   type_query = f"""
-                       SELECT DATA_TYPE
-                       FROM INFORMATION_SCHEMA.COLUMNS
-                       WHERE TABLE_SCHEMA = '{sql_schema}' AND TABLE_NAME = '{sql_table_name}' AND COLUMN_NAME = '{col_name}';
-                   """
-                   sql_type_result = con_source.execute(text(type_query)).scalar_one_or_none()
-                   if sql_type_result:
-                       sql_type = sql_type_result.lower()
-                       duckdb_type = sql_to_duckdb_type_map.get(sql_type, 'VARCHAR') # Default to VARCHAR if not mapped
-                   else:
-                       print(f"{get_relative_timestamp()}   Warning: Could not find type for column '{col_name}'. Defaulting to VARCHAR.")
-                       sql_type = 'varchar' # Default type for bcp ISNULL logic
-                       duckdb_type = 'VARCHAR'
+      # Extract schema and table name from table_sql_full for INFORMATION_SCHEMA query
+      sql_schema = 'dbo' # Default to 'dbo' if no schema specified
+      sql_table_name = table_sql_full.strip('[]')
+      if "." in table_sql_full:
+          parts = table_sql_full.split('.')
+          sql_schema = parts[0].strip('[]')
+          sql_table_name = parts[1].strip('[]')
 
-               # Enclose column names in double quotes for DuckDB CREATE TABLE statement
-               column_definitions.append(f'"{col_name}" {duckdb_type}')
-               source_columns_with_types.append((col_name, sql_type)) # Store for bcp query construction
 
-           if not column_definitions:
-               print(f"{get_relative_timestamp()}   Warning: No column definitions could be determined for {table_sql_full}. Skipping table processing.")
-               continue # Skip to next table if no columns
+      csv_filename = f"{table_friendly}.csv"
+      csv_path = os.path.join(local_dir, csv_filename)
 
-           # Create table in DuckDB with explicitly defined columns and types
-           create_table_sql = f"CREATE TABLE {table_friendly} ({', '.join(column_definitions)});"
-           con_duckdb.execute(f"DROP TABLE IF EXISTS {table_friendly};") # Drop before creating
-           con_duckdb.execute(create_table_sql)
-           if verbose:
-               print(f"{get_relative_timestamp()}   Created DuckDB table schema: {table_friendly} ({', '.join(column_definitions)})")
+      if verbose:
+          print(f"{get_relative_timestamp()} Processing: {table_sql_full} -> {table_friendly}")
+          print(f"{get_relative_timestamp()}   Temporary CSV will be: {csv_path}")
 
-       except Exception as e:
-           print(f"{get_relative_timestamp()} ❌ Error getting schema for {table_sql_full}: {e}")
-           continue # Skip to next table if schema cannot be retrieved
+      # --- Get column names and types from source database for DuckDB schema ---
+      column_definitions = []
+      source_columns_with_types = [] # Store (column_name, sql_type) for bcp query construction
+      try:
+          # Step 1: Get actual column names in their exact order from MSSQL
+          # This ensures the order matches what bcp will output for SELECT *
+          test_query_for_order = f"SELECT TOP 1 * FROM {table_sql_full};"
+          if verbose:
+              print(f"{get_relative_timestamp()}   Getting column order from MSSQL using: {test_query_for_order}")
 
-       # --- Construct the bcp query with ISNULL for character columns ---
-       select_columns_for_bcp = []
-       for col_name, sql_type in source_columns_with_types:
-           # Apply ISNULL for character types to convert NULLs to empty strings
-           # For other types, select directly to avoid type conversion issues within MSSQL
-           # Use MSSQL's bracket quoting for column names in the SELECT statement
-           if sql_type in ['char', 'varchar', 'nvarchar', 'text', 'ntext']:
-               select_columns_for_bcp.append(f"ISNULL([{col_name}], '')")
-           else:
-               select_columns_for_bcp.append(f"[{col_name}]") # Select directly
+          proxy_for_cols = con_source.execute(text(test_query_for_order))
+          actual_col_names_ordered = list(proxy_for_cols.keys())
+          proxy_for_cols.close() # Explicitly close the result proxy to free the connection
 
-       select_clause_for_bcp = ", ".join(select_columns_for_bcp)
-       if not select_clause_for_bcp: # Fallback if no columns or issue
-           select_clause_for_bcp = "*" # Should not happen if column_definitions is not empty
+          # Step 2: Query INFORMATION_SCHEMA for types based on these ordered names
+          for col_name in actual_col_names_ordered:
+              sql_type = None # Initialize sql_type
+              duckdb_type = None # Initialize duckdb_type
 
-       top_clause = f" TOP {top_n_rows}" if top_n_rows > 0 else ""
-       # Use full table name for bcp, as it's an external command and needs context
-       bcp_query = f"SELECT{top_clause} {select_clause_for_bcp} FROM {table_sql_full}"
+              # Check for type override first
+              if col_name in duckdb_column_type_overrides:
+                  requested_duckdb_type = duckdb_column_type_overrides[col_name]
+                  duckdb_type = requested_duckdb_type
+                  sql_type = 'varchar' # Assume varchar in source for ISNULL logic if overridden
+                  if verbose:
+                      print(f"{get_relative_timestamp()}   Overriding type for column '{col_name}': MSSQL type assumed as VARCHAR, DuckDB type set to {duckdb_type}")
+              else:
+                  # Infer type from INFORMATION_SCHEMA if no override
+                  type_query = f"""
+                      SELECT DATA_TYPE
+                      FROM INFORMATION_SCHEMA.COLUMNS
+                      WHERE TABLE_SCHEMA = '{sql_schema}' AND TABLE_NAME = '{sql_table_name}' AND COLUMN_NAME = '{col_name}';
+                  """
+                  sql_type_result = con_source.execute(text(type_query)).scalar_one_or_none()
+                  if sql_type_result:
+                      sql_type = sql_type_result.lower()
+                      duckdb_type = sql_to_duckdb_type_map.get(sql_type, 'VARCHAR') # Default to VARCHAR if not mapped
+                  else:
+                      print(f"{get_relative_timestamp()}   Warning: Could not find type for column '{col_name}'. Defaulting to VARCHAR.")
+                      sql_type = 'varchar' # Default type for bcp ISNULL logic
+                      duckdb_type = 'VARCHAR'
 
-       # Construct the bcp command for trusted connection
-       bcp_command = [
-           "bcp",
-           bcp_query,
-           "queryout",
-           csv_path,
-           "-w", # Changed back to -w for wide character (UTF-16) export
-           "-t\t", # Use tab as field terminator
-           "-S", server_name,
-           "-d", database_name,
-           "-T" # Trusted connection
-       ]
+              # Enclose column names in double quotes for DuckDB CREATE TABLE statement
+              column_definitions.append(f'"{col_name}" {duckdb_type}')
+              source_columns_with_types.append((col_name, sql_type)) # Store for bcp query construction
 
-       try:
-           if verbose:
-               print(f"{get_relative_timestamp()}   Executing bcp command for {table_sql_full} (using -w for Unicode)...")
+          if not column_definitions:
+              print(f"{get_relative_timestamp()}   Warning: No column definitions could be determined for {table_sql_full}. Skipping table processing.")
+              continue # Skip to next table if no columns
 
-           # Execute bcp command (output is captured as bytes, not text)
-           result = subprocess.run(bcp_command, check=True, capture_output=True)
+          # Create table in DuckDB with explicitly defined columns and types
+          create_table_sql = f"CREATE TABLE {table_friendly} ({', '.join(column_definitions)});"
+          con_duckdb.execute(f"DROP TABLE IF EXISTS {table_friendly};") # Drop before creating
+          con_duckdb.execute(create_table_sql)
+          if verbose:
+              print(f"{get_relative_timestamp()}   Created DuckDB table schema: {table_friendly} ({', '.join(column_definitions)})")
 
-           # Decode stdout and stderr manually with error replacement (using latin-1 for diagnostic messages)
-           bcp_stdout = result.stdout.decode('latin-1', errors='replace')
-           bcp_stderr = result.stderr.decode('latin-1', errors='replace')
+      except Exception as e:
+          print(f"{get_relative_timestamp()} ❌ Error getting schema for {table_sql_full}: {e}")
+          continue # Skip to next table if schema cannot be retrieved
 
-           # Only print bcp's "0 rows copied" message if verbose is True
-           if verbose and "0 rows copied" in bcp_stdout:
-               print(f"{get_relative_timestamp()}   bcp reported 0 rows copied for {table_sql_full}.")
+      # --- Construct the bcp query with ISNULL for character columns ---
+      select_columns_for_bcp = []
+      for col_name, sql_type in source_columns_with_types:
+          # Apply ISNULL for character types to convert NULLs to empty strings
+          # For other types, select directly to avoid type conversion issues within MSSQL
+          # Use MSSQL's bracket quoting for column names in the SELECT statement
+          if sql_type in ['char', 'varchar', 'nvarchar', 'text', 'ntext']:
+              select_columns_for_bcp.append(f"ISNULL([{col_name}], '')")
+          else:
+              select_columns_for_bcp.append(f"[{col_name}]") # Select directly
 
-           # If there's any stderr, print it (after decoding)
-           if bcp_stderr:
-               print(f"{get_relative_timestamp()}   BCP Stderr: {bcp_stderr.strip()}")
+      select_clause_for_bcp = ", ".join(select_columns_for_bcp)
+      if not select_clause_for_bcp: # Fallback if no columns or issue
+          select_clause_for_bcp = "*" # Should not happen if column_definitions is not empty
 
-           # Check if the CSV file was actually created and is not empty
-           if not os.path.exists(csv_path) or os.stat(csv_path).st_size == 0:
-               if "0 rows copied" not in bcp_stdout: # Avoid duplicate error if 0 rows was already handled
-                   raise FileNotFoundError(f"bcp did not create or populate the CSV file: {csv_path}. Check bcp output for errors.")
+      top_clause = f" TOP {top_n_rows}" if top_n_rows > 0 else ""
+      # Use full table name for bcp, as it's an external command and needs context
+      bcp_query = f"SELECT{top_clause} {select_clause_for_bcp} FROM {table_sql_full}"
 
-           # --- Post-process CSV to remove '\0' bytes ---
-           if verbose:
-               print(f"{get_relative_timestamp()}   Post-processing CSV: Removing '\\0' bytes from {csv_path}")
-           # Read and write the CSV file with explicit UTF-16 encoding
-           # bcp -w exports UTF-16, which often has a BOM. Python's 'utf-16' encoding handles BOMs.
-           with open(csv_path, 'r', encoding='utf-16') as f_in:
-               content = f_in.read()
-           cleaned_content = content.replace('\0', '') # Replace null characters (not bytes)
-           with open(csv_path, 'w', encoding='utf-16') as f_out:
-               f_out.write(cleaned_content)
-           if verbose:
-               print(f"{get_relative_timestamp()}   Finished post-processing {csv_path}.")
+      # Construct the bcp command for trusted connection
+      bcp_command = [
+          "bcp",
+          bcp_query,
+          "queryout",
+          csv_path,
+          "-w", # Changed back to -w for wide character (UTF-16) export
+          "-t\t", # Use tab as field terminator
+          "-S", server_name,
+          "-d", database_name,
+          "-T" # Trusted connection
+      ]
 
-           # Copy data into the pre-created table
-           # HEADER FALSE because bcp queryout -w does NOT include headers.
-           # DuckDB will use the schema defined in the CREATE TABLE statement.
-           # Corrected ENCODING to 'utf-16' (lowercase)
-           if verbose:
-               print(f"{get_relative_timestamp()}   Copying data from '{csv_path}' into {table_friendly} (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16').")
-           con_duckdb.execute(f"COPY {table_friendly} FROM '{csv_path}' (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16');")
+      try:
+          if verbose:
+              print(f"{get_relative_timestamp()}   Executing bcp command for {table_sql_full} (using -w for Unicode)...")
 
-           if verbose:
-               row_count = con_duckdb.execute(f"SELECT COUNT(*) FROM {table_friendly};").fetchone()[0]
-               print(f"{get_relative_timestamp()} Finished loading {table_friendly}. Total rows: {row_count}")
+          # Execute bcp command (output is captured as bytes, not text)
+          result = subprocess.run(bcp_command, check=True, capture_output=True)
 
-           if delete_csv_after:
-               os.remove(csv_path)
-               if verbose:
-                   print(f"{get_relative_timestamp()}   Deleted temporary CSV: {csv_path}")
+          # Decode stdout and stderr manually with error replacement (using latin-1 for diagnostic messages)
+          bcp_stdout = result.stdout.decode('latin-1', errors='replace')
+          bcp_stderr = result.stderr.decode('latin-1', errors='replace')
 
-       except subprocess.CalledProcessError as e:
-           # Always print bcp errors if the command itself failed
-           print(f"{get_relative_timestamp()} ❌ Error executing bcp for table {table_sql_full}:")
-           print(f"{get_relative_timestamp()}   Command: {' '.join(e.cmd)}")
-           # Decode stdout and stderr from the exception object as well
-           error_stdout = e.stdout.decode('latin-1', errors='replace') if e.stdout else ""
-           error_stderr = e.stderr.decode('latin-1', errors='replace') if e.stderr else ""
-           print(f"{get_relative_timestamp()}   Return Code: {e.returncode}")
-           print(f"{get_relative_timestamp()}   Stdout: {error_stdout.strip()}")
-           print(f"{get_relative_timestamp()}   Stderr: {error_stderr.strip()}")
-           print(f"{get_relative_timestamp()}   Please ensure 'bcp' is in your system's PATH, you have necessary database permissions, and the database name is correct.")
-       except FileNotFoundError as e:
-           print(f"{get_relative_timestamp()} ❌ File error after bcp for table {table_sql_full}: {e}")
-       except Exception as e:
-           print(f"{get_relative_timestamp()} ❌ Error processing table {table_sql_full} during DuckDB load: {e}")
+          # Only print bcp's "0 rows copied" message if verbose is True
+          if verbose and "0 rows copied" in bcp_stdout:
+              print(f"{get_relative_timestamp()}   bcp reported 0 rows copied for {table_sql_full}.")
 
-   # * Close the DuckDB connection
-   con_duckdb.close()
-   if verbose:
-       print(f"{get_relative_timestamp()} Successfully created DuckDB file: {file_db}")
+          # If there's any stderr, print it (after decoding)
+          if bcp_stderr:
+              print(f"{get_relative_timestamp()}   BCP Stderr: {bcp_stderr.strip()}")
 
-   return
+          # Check if the CSV file was actually created and is not empty
+          if not os.path.exists(csv_path) or os.stat(csv_path).st_size == 0:
+              if "0 rows copied" not in bcp_stdout: # Avoid duplicate error if 0 rows was already handled
+                  raise FileNotFoundError(f"bcp did not create or populate the CSV file: {csv_path}. Check bcp output for errors.")
+
+          # --- Post-process CSV to remove '\0' bytes ---
+          if verbose:
+              print(f"{get_relative_timestamp()}   Post-processing CSV: Removing '\\0' bytes from {csv_path}")
+          # Read and write the CSV file with explicit UTF-16 encoding
+          # bcp -w exports UTF-16, which often has a BOM. Python's 'utf-16' encoding handles BOMs.
+          with open(csv_path, 'r', encoding='utf-16') as f_in:
+              content = f_in.read()
+          cleaned_content = content.replace('\0', '') # Replace null characters (not bytes)
+          with open(csv_path, 'w', encoding='utf-16') as f_out:
+              f_out.write(cleaned_content)
+          if verbose:
+              print(f"{get_relative_timestamp()}   Finished post-processing {csv_path}.")
+
+          # Copy data into the pre-created table
+          # HEADER FALSE because bcp queryout -w does NOT include headers.
+          # DuckDB will use the schema defined in the CREATE TABLE statement.
+          # Corrected ENCODING to 'utf-16' (lowercase)
+          if verbose:
+              print(f"{get_relative_timestamp()}   Copying data from '{csv_path}' into {table_friendly} (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16').")
+          con_duckdb.execute(f"COPY {table_friendly} FROM '{csv_path}' (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16');")
+
+          if verbose:
+              row_count = con_duckdb.execute(f"SELECT COUNT(*) FROM {table_friendly};").fetchone()[0]
+              print(f"{get_relative_timestamp()} Finished loading {table_friendly}. Total rows: {row_count}")
+
+          if delete_csv_after:
+              os.remove(csv_path)
+              if verbose:
+                  print(f"{get_relative_timestamp()}   Deleted temporary CSV: {csv_path}")
+
+      except subprocess.CalledProcessError as e:
+          # Always print bcp errors if the command itself failed
+          print(f"{get_relative_timestamp()} ❌ Error executing bcp for table {table_sql_full}:")
+          print(f"{get_relative_timestamp()}   Command: {' '.join(e.cmd)}")
+          # Decode stdout and stderr from the exception object as well
+          error_stdout = e.stdout.decode('latin-1', errors='replace') if e.stdout else ""
+          error_stderr = e.stderr.decode('latin-1', errors='replace') if e.stderr else ""
+          print(f"{get_relative_timestamp()}   Return Code: {e.returncode}")
+          print(f"{get_relative_timestamp()}   Stdout: {error_stdout.strip()}")
+          print(f"{get_relative_timestamp()}   Stderr: {error_stderr.strip()}")
+          print(f"{get_relative_timestamp()}   Please ensure 'bcp' is in your system's PATH, you have necessary database permissions, and the database name is correct.")
+      except FileNotFoundError as e:
+          print(f"{get_relative_timestamp()} ❌ File error after bcp for table {table_sql_full}: {e}")
+      except Exception as e:
+          print(f"{get_relative_timestamp()} ❌ Error processing table {table_sql_full} during DuckDB load: {e}")
+
+  # * Close the DuckDB connection
+  con_duckdb.close()
+  if verbose:
+      print(f"{get_relative_timestamp()} Successfully created DuckDB file: {file_db}")
+
+  return
