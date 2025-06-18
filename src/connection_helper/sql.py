@@ -606,7 +606,6 @@ def load_mssql_to_duckdb( # Renamed function
         con_source,
         file_db: str,
         list_tables: list[str],
-        dict_meta: dict = None,
         delete_csv_after: bool = True,
         top_n_rows: int = 0,
         verbose: bool = True, # Retain verbose for general function progress messages
@@ -688,32 +687,6 @@ def load_mssql_to_duckdb( # Renamed function
     os.makedirs(local_dir, exist_ok=True)
     if verbose:
         print(f"{get_relative_timestamp()} Ensuring temporary CSV directory exists: {local_dir}")
-
-    # * Write meta table if dict was given
-    if dict_meta is not None:
-        if verbose:
-            print(f"{get_relative_timestamp()} Creating and populating metadata table '_meta'...")
-        try:
-            # Dynamically create columns based on dict_meta keys, all as VARCHAR
-            meta_column_names = list(dict_meta.keys())
-            column_definitions = [f'"{col_name}" VARCHAR' for col_name in meta_column_names]
-            create_meta_sql = f"CREATE TABLE _meta ({', '.join(column_definitions)});"
-            
-            con_duckdb.execute("DROP TABLE IF EXISTS _meta;") # Drop existing meta if any (shouldn't be in new DB)
-            con_duckdb.execute(create_meta_sql)
-
-            # Prepare values for insertion
-            placeholders = ', '.join(['?' for _ in meta_column_names])
-            insert_meta_sql = f"INSERT INTO _meta ({', '.join([f'"{c}"' for c in meta_column_names])}) VALUES ({placeholders});"
-            
-            # Convert all metadata values to string for VARCHAR columns
-            meta_values = [str(v) for v in dict_meta.values()]
-            con_duckdb.execute(insert_meta_sql, meta_values)
-
-            if verbose:
-                print(f"{get_relative_timestamp()} Metadata table '_meta' created and populated.")
-        except ddb.Error as e:
-            print(f"{get_relative_timestamp()} ❌ Error creating or populating _meta table: {e}")
 
     # Extract server and database name from SQLAlchemy connection URL
     server_name = None
@@ -1061,3 +1034,53 @@ def apply_duckdb_type_overrides(
             con_duckdb.close()
             if verbose:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] DuckDB connection closed.")
+
+
+def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None,) -> None:
+    # * write meta table if dict was given
+    """
+    Creates a metadata table named "_meta" in a DuckDB database from a given dictionary.
+    
+    Args:
+        file_db (str): The path to the existing DuckDB database file.
+        dict_meta (dict | None): A dictionary containing the metadata to be added. If None, no table is created.
+    
+    Returns:
+        None
+    
+    Raises:
+        ddb.Error: If an error occurs while creating or populating the _meta table.
+    """
+
+    con_duckdb = ddb.connect(database=file_db, )
+    if dict_meta is None:
+        print("❌ No metadata provided. Skipping meta table creation.")
+        return
+
+    df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
+    df_meta.to_sql("_meta", con_duckdb, if_exists="replace", index=False)
+    con_duckdb.close()
+    return
+
+    # if dict_meta is not None:
+    #     try:
+    #         # Dynamically create columns based on dict_meta keys, all as VARCHAR
+    #         meta_column_names = list(dict_meta.keys())
+    #         column_definitions = [f'"{col_name}" VARCHAR' for col_name in meta_column_names]
+    #         create_meta_sql = f"CREATE TABLE _meta ({', '.join(column_definitions)});"
+            
+    #         con_duckdb.execute("DROP TABLE IF EXISTS _meta;") # Drop existing meta if any (shouldn't be in new DB)
+    #         con_duckdb.execute(create_meta_sql)
+
+    #         # Prepare values for insertion
+    #         placeholders = ', '.join(['?' for _ in meta_column_names])
+    #         insert_meta_sql = f"INSERT INTO _meta ({', '.join([f'"{c}"' for c in meta_column_names])}) VALUES ({placeholders});"
+            
+    #         # Convert all metadata values to string for VARCHAR columns
+    #         meta_values = [str(v) for v in dict_meta.values()]
+    #         con_duckdb.execute(insert_meta_sql, meta_values)
+
+    #         if verbose:
+    #             print(f"{get_relative_timestamp()} Metadata table '_meta' created and populated.")
+    #     except ddb.Error as e:
+    #         print(f"{get_relative_timestamp()} ❌ Error creating or populating _meta table: {e}")
