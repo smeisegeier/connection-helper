@@ -13,7 +13,7 @@ pip install connection-helper -U
 include in python
 
 ```python
-from connection_helper import sql, pgp, sec
+from connection_helper import sql, pgp
 ```
 
 ## why use connection-helper
@@ -24,13 +24,17 @@ from connection_helper import sql, pgp, sec
   - `connect_sql()` to get get data from `['mssql', 'sqlite','postgres']`
   - `load_sql_to_sqlite` connect to a sql db and transfer a list of tables to `sqlite`
   - `load_sqlite_to_parquet()` to get all tables from a sqlite file as parquets
-  - `unpack_files_to_duckdb()` return a tuple of all files of a dir (csv or parquet) into high performance duckdb objects ⚡
+  - `unpack_files_to_duckdb()` return a tuple of all files of a dir (csv or parquet) into high performance duckdb objects
   - `print_meta()` print meta information of a certain database (niche case)
   - `load_from_mssql()` load data from an MSSQL database into a Pandas DataFrame
   - `save_to_mssql()` save data from a Pandas DataFrame to an MSSQL database
   - `load_file_to_duckdb()` load data from various sources into a duckdb database, using pandas read functions (_experimental_)
   - `load_sqlite_to_duckdb()` converts a SQLite database to a DuckDB database
   - `load_mssql_to_duckdb()` converts a MSSQL database to a DuckDB database
+  - `apply_duckdb_type_overrides()` applies column type overrides to tables in an existing DuckDB database
+  - `add_duckdb_meta_table()` adds a meta table to an existing DuckDB database  
+
+</br>
 
 - `pgp` cryptographic tools adapted from [python-gnupg](https://github.com/vsajip/python-gnupg). this is a wrapper around `gnupg`, but only offers some convenience or tailored options. feel free to use the original library or the [GNU Privacy Guard](https://gnupg.org/).
   - `encrypt()` a message for one or more recipient(s) with a public key
@@ -39,6 +43,8 @@ from connection_helper import sql, pgp, sec
   - ...
 
 > 💡 The pgp methods require a pgp public/private key in the keyring
+
+</br>
 
 - `sec` secrets module. ⚠️ this package is optional and must be extra installed with `pip install 'connection-helper[sec]'` (enclose in '')
   - `get_infisical_secrets()` retrieve secrets from [Infisical](https://infisical.com/) project (requires existing account and machine identities)

@@ -1036,32 +1036,46 @@ def apply_duckdb_type_overrides(
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] DuckDB connection closed.")
 
 
-def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None,) -> None:
-    # * write meta table if dict was given
+
+def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
     """
     Creates a metadata table named "_meta" in a DuckDB database from a given dictionary.
-    
+
     Args:
         file_db (str): The path to the existing DuckDB database file.
         dict_meta (dict | None): A dictionary containing the metadata to be added. If None, no table is created.
-    
+
     Returns:
         None
-    
+
     Raises:
         ddb.Error: If an error occurs while creating or populating the _meta table.
     """
-
-    con_duckdb = ddb.connect(database=file_db, )
     if dict_meta is None:
         print("❌ No metadata provided. Skipping meta table creation.")
         return
 
-    df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
-    df_meta.to_sql("_meta", con_duckdb, if_exists="replace", index=False)
-    con_duckdb.close()
+    try:
+        con_duckdb = ddb.connect(database=file_db)
+        df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
+
+        # Register the DataFrame as a virtual table
+        con_duckdb.register("_meta_temp_view", df_meta)
+
+        # Create or replace the _meta table from the temporary view
+        con_duckdb.execute("CREATE OR REPLACE TABLE _meta AS SELECT * FROM _meta_temp_view")
+        con_duckdb.commit() # Ensure changes are written
+        print(f"✅ Metadata table '_meta' successfully created/updated in {file_db}")
+
+    except ddb.Error as e:
+        print(f"❌ Error creating/populating _meta table: {e}")
+        raise
+    finally:
+        if 'con_duckdb' in locals() and con_duckdb:
+            con_duckdb.close()
     return
 
+    # ? option key value pairs
     # if dict_meta is not None:
     #     try:
     #         # Dynamically create columns based on dict_meta keys, all as VARCHAR
