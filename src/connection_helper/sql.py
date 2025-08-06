@@ -348,7 +348,7 @@ def print_meta(path: str | Path) -> None:
     Prints metadata information from a given SQLite or DuckDB database file.
 
     Args:
-        path_sqlite (str | Path): The path to the database file.
+        path (str | Path): The path to the database file.
 
     Returns:
         None
@@ -382,6 +382,8 @@ def print_meta(path: str | Path) -> None:
         trans = meta.get("table_transmitted_at")
         creat = meta.get("table_created_at")
         tag = meta.get("tag")
+        doi = meta.get("doi")
+        url = meta.get("url")
 
         print(f"{'sqlite db file:': <25}{path.name}")
         if tag is not None:
@@ -392,6 +394,10 @@ def print_meta(path: str | Path) -> None:
             print(f"{'sql table created:': <25}{creat[0][:19]}")
         if trans is not None:
             print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
+        if doi is not None:
+            print(f"{'doi:': <25}{doi[0]}")
+        if url is not None:
+            print(f"{'url to description:': <25}{url[0]}")
         print(
             f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}"
         )
