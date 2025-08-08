@@ -1,3 +1,48 @@
+[project]
+name = "connection-helper"
+version = "0.12"
+description = "A collection of helper for sql connections"
+long_description = "file: README.md"
+long_description_content_type = "text/markdown"
+readme = "README.md"
+requires-python = ">=3.12"
+keywords = ["sql", "duckdb", "sqlite" ]
+authors = [
+    { name = "smeisegeier", email = "dexterDSD@googlemail.com" },
+]
+license = "MIT"
+license_file = "LICENSE"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Science/Research',
+    'Operating System :: OS Independent',
+    'Topic :: Scientific/Engineering'
+]
+dependencies = [
+    "pandas >= 2.0.0",
+    "sqlalchemy >= 2.0.28",
+    "sqlalchemy-utils >= 0.41.2",
+    "python-gnupg >= 0.5.2",
+    "duckdb >= 1.3.0",
+    "numpy < 2.0.0",
+    "pyodbc >= 5.1.0",
+    "python_dotenv >= 1.0.1",
+]
+
+[project.urls]
+Documentation = "https://github.com/smeisegeier/connection-helper"
+"Source Code" = "https://github.com/smeisegeier/connection-helper"
+"Bug Tracker" = "https://github.com/smeisegeier/connection-helper/issues"
+
+[project.optional-dependencies]
+sec = [
+    "infisical-python>=2.2.3",
+    "bitwarden-sdk",
+]
+
 [build-system]
-requires      = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"] # Use hatchling as the build tool
+build-backend = "hatchling.build"
