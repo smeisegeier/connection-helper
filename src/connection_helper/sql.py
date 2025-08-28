@@ -18,8 +18,7 @@ from typing import List, Optional, Union, Literal
 from dotenv import load_dotenv, find_dotenv
 
 import subprocess
-from datetime import datetime, timedelta # Import timedelta as well
-
+from datetime import datetime, timedelta  # Import timedelta as well
 
 
 def is_url(url: str) -> bool:
@@ -158,9 +157,7 @@ def load_sql_to_sqlite(
     cursor = con_sqlite.cursor()
     if dict_views is not None:
         for key, value in dict_views.items():
-            cursor.execute(
-                f"create view if not exists {key} as {value.replace(';','')};"
-            )
+            cursor.execute(f"create view if not exists {key} as {value.replace(';', '')};")
 
     # * write meta table if dict was given
     if dict_meta is not None:
@@ -173,11 +170,7 @@ def load_sql_to_sqlite(
     for item in list_tables:
         if is_list_nested:
             table_sql = item[0]
-            table_friendly = (
-                item[1]
-                if item[1]
-                else item[0] if "." not in item[0] else item[0].split(".")[1]
-            )
+            table_friendly = item[1] if item[1] else item[0] if "." not in item[0] else item[0].split(".")[1]
         else:
             table_sql = item
             table_friendly = item if "." not in item else item.split(".")[1]
@@ -201,6 +194,7 @@ def load_sql_to_sqlite(
 
     con_sqlite.close()
     return
+
 
 # todo handle path arguments in single logic
 def load_sqlite_to_parquet(
@@ -324,9 +318,7 @@ def unpack_files_to_duckdb(
             if ext == "parquet":
                 items.append(con_.read_parquet((dir / f"{file}.parquet").as_posix()))
             elif ext == "csv":
-                items.append(
-                    con_.read_csv((dir / f"{file}.csv").as_posix(), header=True)
-                )
+                items.append(con_.read_csv((dir / f"{file}.csv").as_posix(), header=True))
 
     if not debug:
         # * unpacking the ddb files in tupel notation works
@@ -398,13 +390,12 @@ def print_meta(path: str | Path) -> None:
             print(f"{'doi:': <25}{doi[0]}")
         if url is not None:
             print(f"{'url to description:': <25}{url[0]}")
-        print(
-            f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}"
-        )
+        print(f"{'document created:': <25}{dt.datetime.now().isoformat(sep=' ', timespec='seconds')}")
 
     finally:
         if con is not None:
             con.close()
+
 
 def load_from_mssql(
     query: str,
@@ -507,16 +498,12 @@ def save_to_mssql(
 
     # Save the DataFrame to SQL
     print("⏳ writing data to MSSQL...")
-    df_.to_sql(
-        table_name, schema=schema_name, con=con, if_exists="replace", index=False
-    )
+    df_.to_sql(table_name, schema=schema_name, con=con, if_exists="replace", index=False)
     print(f"✅ data written to [{schema_name}].[{table_name}] on [{host}].[{db}]")
     return
 
 
-def load_file_to_duckdb(
-    con: ddb.DuckDBPyConnection, path: str | Path, **kwargs
-) -> ddb.DuckDBPyRelation:
+def load_file_to_duckdb(con: ddb.DuckDBPyConnection, path: str | Path, **kwargs) -> ddb.DuckDBPyRelation:
     """
     Loads data from various sources into a duckdb database, using these pandas read functions:
         - read_csv
@@ -607,14 +594,13 @@ def load_sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
         return
 
 
-
-def load_mssql_to_duckdb( # Renamed function
-        con_source,
-        file_db: str,
-        list_tables: list[str],
-        delete_csv_after: bool = True,
-        top_n_rows: int = 0,
-        verbose: bool = True, # Retain verbose for general function progress messages
+def load_mssql_to_duckdb(  # Renamed function
+    con_source,
+    file_db: str,
+    list_tables: list[str],
+    delete_csv_after: bool = True,
+    top_n_rows: int = 0,
+    verbose: bool = True,  # Retain verbose for general function progress messages
 ) -> None:
     """
     Load SQL tables from a source MSSQL database into a DuckDB database using bcp for export.
@@ -698,20 +684,28 @@ def load_mssql_to_duckdb( # Renamed function
     server_name = None
     database_name = None
     try:
-        if hasattr(con_source, 'engine') and hasattr(con_source.engine, 'url'):
+        if hasattr(con_source, "engine") and hasattr(con_source.engine, "url"):
             server_name = con_source.engine.url.host
             database_name = con_source.engine.url.database
-        elif hasattr(con_source, 'url'): # For SQLAlchemy Engine objects
+        elif hasattr(con_source, "url"):  # For SQLAlchemy Engine objects
             server_name = con_source.url.host
             database_name = con_source.url.database
         else:
-            raise ValueError("Could not extract server/database name from con_source. Please ensure it's an SQLAlchemy Engine or Connection object.")
+            raise ValueError(
+                "Could not extract server/database name from con_source. Please ensure it's an SQLAlchemy Engine or Connection object."
+            )
 
         if not server_name or not database_name:
-            raise ValueError("Extracted server name or database name is empty. Please ensure con_source is correctly configured.")
+            raise ValueError(
+                "Extracted server name or database name is empty. Please ensure con_source is correctly configured."
+            )
     except AttributeError:
-        print(f"{get_relative_timestamp()} Error: con_source does not appear to be a valid SQLAlchemy Engine or Connection object.")
-        print(f"{get_relative_timestamp()} Please ensure con_source is an SQLAlchemy Engine or Connection object and provides host and database.")
+        print(
+            f"{get_relative_timestamp()} Error: con_source does not appear to be a valid SQLAlchemy Engine or Connection object."
+        )
+        print(
+            f"{get_relative_timestamp()} Please ensure con_source is an SQLAlchemy Engine or Connection object and provides host and database."
+        )
         return
     except ValueError as e:
         print(f"{get_relative_timestamp()} Error extracting server/database name: {e}")
@@ -722,54 +716,49 @@ def load_mssql_to_duckdb( # Renamed function
     # Basic type mapping from common SQL Server types to DuckDB types
     # This map might need to be extended based on the exact types in your MSSQL database
     sql_to_duckdb_type_map = {
-        'bit': 'BOOLEAN',
-        'tinyint': 'TINYINT',
-        'smallint': 'SMALLINT',
-        'int': 'INTEGER',
-        'bigint': 'BIGINT',
-        'real': 'REAL', # 4-byte floating point
-        'float': 'DOUBLE', # 8-byte floating point
-        'decimal': 'DECIMAL',
-        'numeric': 'DECIMAL',
-        'money': 'DECIMAL(19,4)', # Common precision for money
-        'smallmoney': 'DECIMAL(10,4)',
-        'char': 'VARCHAR',
-        'varchar': 'VARCHAR',
-        'nvarchar': 'VARCHAR',
-        'text': 'VARCHAR',
-        'ntext': 'VARCHAR',
-        'date': 'DATE',
-        'datetime': 'TIMESTAMP',
-        'datetime2': 'TIMESTAMP',
-        'smalldatetime': 'TIMESTAMP',
-        'time': 'TIME',
-        'uniqueidentifier': 'UUID',
-        'binary': 'BLOB',
-        'varbinary': 'BLOB',
-        'image': 'BLOB',
+        "bit": "BOOLEAN",
+        "tinyint": "TINYINT",
+        "smallint": "SMALLINT",
+        "int": "INTEGER",
+        "bigint": "BIGINT",
+        "real": "REAL",  # 4-byte floating point
+        "float": "DOUBLE",  # 8-byte floating point
+        "decimal": "DECIMAL",
+        "numeric": "DECIMAL",
+        "money": "DECIMAL(19,4)",  # Common precision for money
+        "smallmoney": "DECIMAL(10,4)",
+        "char": "VARCHAR",
+        "varchar": "VARCHAR",
+        "nvarchar": "VARCHAR",
+        "text": "VARCHAR",
+        "ntext": "VARCHAR",
+        "date": "DATE",
+        "datetime": "TIMESTAMP",
+        "datetime2": "TIMESTAMP",
+        "smalldatetime": "TIMESTAMP",
+        "time": "TIME",
+        "uniqueidentifier": "UUID",
+        "binary": "BLOB",
+        "varbinary": "BLOB",
+        "image": "BLOB",
         # Add more as needed, e.g., xml, geography, geometry
     }
 
     for item in list_tables:
         if is_list_nested:
             table_sql_full = item[0]
-            table_friendly = (
-                item[1]
-                if item[1]
-                else item[0] if "." not in item[0] else item[0].split(".")[1]
-            )
+            table_friendly = item[1] if item[1] else item[0] if "." not in item[0] else item[0].split(".")[1]
         else:
             table_sql_full = item
             table_friendly = item if "." not in item else item.split(".")[1]
 
         # Extract schema and table name from table_sql_full for INFORMATION_SCHEMA query
-        sql_schema = 'dbo' # Default to 'dbo' if no schema specified
-        sql_table_name = table_sql_full.strip('[]')
+        sql_schema = "dbo"  # Default to 'dbo' if no schema specified
+        sql_table_name = table_sql_full.strip("[]")
         if "." in table_sql_full:
-            parts = table_sql_full.split('.')
-            sql_schema = parts[0].strip('[]')
-            sql_table_name = parts[1].strip('[]')
-
+            parts = table_sql_full.split(".")
+            sql_schema = parts[0].strip("[]")
+            sql_table_name = parts[1].strip("[]")
 
         csv_filename = f"{table_friendly}.csv"
         csv_path = os.path.join(local_dir, csv_filename)
@@ -780,7 +769,7 @@ def load_mssql_to_duckdb( # Renamed function
 
         # --- Get column names and types from source database for DuckDB schema ---
         column_definitions = []
-        source_columns_with_types = [] # Store (column_name, sql_type) for bcp query construction
+        source_columns_with_types = []  # Store (column_name, sql_type) for bcp query construction
         try:
             # Step 1: Get actual column names in their exact order from MSSQL
             # This ensures the order matches what bcp will output for SELECT *
@@ -790,12 +779,12 @@ def load_mssql_to_duckdb( # Renamed function
 
             proxy_for_cols = con_source.execute(text(test_query_for_order))
             actual_col_names_ordered = list(proxy_for_cols.keys())
-            proxy_for_cols.close() # Explicitly close the result proxy to free the connection
+            proxy_for_cols.close()  # Explicitly close the result proxy to free the connection
 
             # Step 2: Query INFORMATION_SCHEMA for types based on these ordered names
             for col_name in actual_col_names_ordered:
-                sql_type = None # Initialize sql_type
-                duckdb_type = None # Initialize duckdb_type
+                sql_type = None  # Initialize sql_type
+                duckdb_type = None  # Initialize duckdb_type
 
                 # Original type inference logic remains the only path
                 type_query = f"""
@@ -806,30 +795,36 @@ def load_mssql_to_duckdb( # Renamed function
                 sql_type_result = con_source.execute(text(type_query)).scalar_one_or_none()
                 if sql_type_result:
                     sql_type = sql_type_result.lower()
-                    duckdb_type = sql_to_duckdb_type_map.get(sql_type, 'VARCHAR') # Default to VARCHAR if not mapped
+                    duckdb_type = sql_to_duckdb_type_map.get(sql_type, "VARCHAR")  # Default to VARCHAR if not mapped
                 else:
-                    print(f"{get_relative_timestamp()}   Warning: Could not find type for column '{col_name}'. Defaulting to VARCHAR.")
-                    sql_type = 'varchar' # Default type for bcp ISNULL logic
-                    duckdb_type = 'VARCHAR'
+                    print(
+                        f"{get_relative_timestamp()}   Warning: Could not find type for column '{col_name}'. Defaulting to VARCHAR."
+                    )
+                    sql_type = "varchar"  # Default type for bcp ISNULL logic
+                    duckdb_type = "VARCHAR"
 
                 # Enclose column names in double quotes for DuckDB CREATE TABLE statement
                 column_definitions.append(f'"{col_name}" {duckdb_type}')
-                source_columns_with_types.append((col_name, sql_type)) # Store for bcp query construction
+                source_columns_with_types.append((col_name, sql_type))  # Store for bcp query construction
 
             if not column_definitions:
-                print(f"{get_relative_timestamp()}   Warning: No column definitions could be determined for {table_sql_full}. Skipping table processing.")
-                continue # Skip to next table if no columns
+                print(
+                    f"{get_relative_timestamp()}   Warning: No column definitions could be determined for {table_sql_full}. Skipping table processing."
+                )
+                continue  # Skip to next table if no columns
 
             # Create table in DuckDB with explicitly defined columns and types
             create_table_sql = f"CREATE TABLE {table_friendly} ({', '.join(column_definitions)});"
-            con_duckdb.execute(f"DROP TABLE IF EXISTS {table_friendly};") # Drop before creating
+            con_duckdb.execute(f"DROP TABLE IF EXISTS {table_friendly};")  # Drop before creating
             con_duckdb.execute(create_table_sql)
             if verbose:
-                print(f"{get_relative_timestamp()}   Created DuckDB table schema: {table_friendly} ({', '.join(column_definitions)})")
+                print(
+                    f"{get_relative_timestamp()}   Created DuckDB table schema: {table_friendly} ({', '.join(column_definitions)})"
+                )
 
         except Exception as e:
             print(f"{get_relative_timestamp()} ❌ Error getting schema for {table_sql_full}: {e}")
-            continue # Skip to next table if schema cannot be retrieved
+            continue  # Skip to next table if schema cannot be retrieved
 
         # --- Construct the bcp query with ISNULL for character columns ---
         select_columns_for_bcp = []
@@ -837,16 +832,18 @@ def load_mssql_to_duckdb( # Renamed function
             # Apply ISNULL for character types to convert NULLs to empty strings
             # Add REPLACE for CHAR(13), CHAR(10), AND CHAR(9) for character/text types
             # Use MSSQL's bracket quoting for column names in the SELECT statement
-            if sql_type in ['char', 'varchar', 'nvarchar', 'text', 'ntext']:
+            if sql_type in ["char", "varchar", "nvarchar", "text", "ntext"]:
                 # Nested REPLACE to remove CR, LF, AND TAB
-                clean_string_sql = f"REPLACE(REPLACE(REPLACE(ISNULL([{col_name}], ''), CHAR(13), ''), CHAR(10), ''), CHAR(9), '')"
+                clean_string_sql = (
+                    f"REPLACE(REPLACE(REPLACE(ISNULL([{col_name}], ''), CHAR(13), ''), CHAR(10), ''), CHAR(9), '')"
+                )
                 select_columns_for_bcp.append(clean_string_sql)
             else:
-                select_columns_for_bcp.append(f"[{col_name}]") # Select directly
+                select_columns_for_bcp.append(f"[{col_name}]")  # Select directly
 
         select_clause_for_bcp = ", ".join(select_columns_for_bcp)
-        if not select_clause_for_bcp: # Fallback if no columns or issue
-            select_clause_for_bcp = "*" # Should not happen if column_definitions is not empty
+        if not select_clause_for_bcp:  # Fallback if no columns or issue
+            select_clause_for_bcp = "*"  # Should not happen if column_definitions is not empty
 
         top_clause = f" TOP {top_n_rows}" if top_n_rows > 0 else ""
         # Use full table name for bcp, as it's an external command and needs context
@@ -858,48 +855,58 @@ def load_mssql_to_duckdb( # Renamed function
             bcp_query,
             "queryout",
             csv_path,
-            "-w", # Wide character (UTF-16) export
-            "-t\t", # Use tab as field terminator
-            "-S", server_name,
-            "-d", database_name,
-            "-T" # Trusted connection
+            "-w",  # Wide character (UTF-16) export
+            "-t\t",  # Use tab as field terminator
+            "-S",
+            server_name,
+            "-d",
+            database_name,
+            "-T",  # Trusted connection
         ]
 
         try:
             if verbose:
-                print(f"{get_relative_timestamp()}   Executing bcp command for {table_sql_full} (using -w for Unicode and cleansing newlines/tabs)...")
+                print(
+                    f"{get_relative_timestamp()}   Executing bcp command for {table_sql_full} (using -w for Unicode and cleansing newlines/tabs)..."
+                )
 
             # Execute bcp command (output is captured as bytes)
             result = subprocess.run(bcp_command, check=True, capture_output=True)
-            
+
             # Decode stdout and stderr manually with error replacement (using latin-1 for diagnostic messages)
-            bcp_stdout = result.stdout.decode('latin-1', errors='replace')
-            bcp_stderr = result.stderr.decode('latin-1', errors='replace')
+            bcp_stdout = result.stdout.decode("latin-1", errors="replace")
+            bcp_stderr = result.stderr.decode("latin-1", errors="replace")
 
             # Only print bcp's "0 rows copied" message if verbose is True
             if verbose and "0 rows copied" in bcp_stdout:
                 print(f"{get_relative_timestamp()}   bcp reported 0 rows copied for {table_sql_full}.")
-            
+
             # If there's any stderr, print it (after decoding)
             if bcp_stderr:
                 print(f"{get_relative_timestamp()}   BCP Stderr: {bcp_stderr.strip()}")
 
             # Check if the CSV file was actually created and is not empty
             if not os.path.exists(csv_path) or os.stat(csv_path).st_size == 0:
-                if "0 rows copied" not in bcp_stdout: # Avoid duplicate error if 0 rows was already handled
-                    raise FileNotFoundError(f"bcp did not create or populate the CSV file: {csv_path}. Check bcp output for errors.")
+                if "0 rows copied" not in bcp_stdout:  # Avoid duplicate error if 0 rows was already handled
+                    raise FileNotFoundError(
+                        f"bcp did not create or populate the CSV file: {csv_path}. Check bcp output for errors."
+                    )
 
             # --- Post-process CSV to remove '\0' bytes ---
             if verbose:
-                print(f"{get_relative_timestamp()}   Post-processing CSV: Removing '\\0' bytes from {csv_path} in streaming mode...")
-            
+                print(
+                    f"{get_relative_timestamp()}   Post-processing CSV: Removing '\\0' bytes from {csv_path} in streaming mode..."
+                )
+
             # Create a temporary output file to write cleaned content
             temp_csv_path = csv_path + ".tmp"
-            with open(csv_path, 'r', encoding='utf-16', errors='replace') as f_in, \
-                 open(temp_csv_path, 'w', encoding='utf-16') as f_out:
+            with (
+                open(csv_path, "r", encoding="utf-16", errors="replace") as f_in,
+                open(temp_csv_path, "w", encoding="utf-16") as f_out,
+            ):
                 for line in f_in:
-                    f_out.write(line.replace('\0', '')) # Replace null characters line by line
-            
+                    f_out.write(line.replace("\0", ""))  # Replace null characters line by line
+
             # Replace original file with cleaned temporary file
             os.replace(temp_csv_path, csv_path)
 
@@ -911,8 +918,12 @@ def load_mssql_to_duckdb( # Renamed function
             # DuckDB will use the schema defined in the CREATE TABLE statement.
             # Use 'utf-16' (lowercase) for DuckDB ENCODING
             if verbose:
-                print(f"{get_relative_timestamp()}   Copying data from '{csv_path}' into {table_friendly} (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16').")
-            con_duckdb.execute(f"COPY {table_friendly} FROM '{csv_path}' (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16');")
+                print(
+                    f"{get_relative_timestamp()}   Copying data from '{csv_path}' into {table_friendly} (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16')."
+                )
+            con_duckdb.execute(
+                f"COPY {table_friendly} FROM '{csv_path}' (FORMAT CSV, DELIMITER '\t', HEADER FALSE, NULL_PADDING TRUE, QUOTE '', STRICT_MODE FALSE, IGNORE_ERRORS TRUE, ENCODING 'utf-16');"
+            )
 
             if verbose:
                 row_count = con_duckdb.execute(f"SELECT COUNT(*) FROM {table_friendly};").fetchone()[0]
@@ -928,22 +939,26 @@ def load_mssql_to_duckdb( # Renamed function
             print(f"{get_relative_timestamp()} ❌ Error executing bcp for table {table_sql_full}:")
             print(f"{get_relative_timestamp()}   Command: {' '.join(e.cmd)}")
             # Decode stdout and stderr from the exception object as well
-            error_stdout = e.stdout.decode('latin-1', errors='replace') if e.stdout else ""
-            error_stderr = e.stderr.decode('latin-1', errors='replace') if e.stderr else ""
+            error_stdout = e.stdout.decode("latin-1", errors="replace") if e.stdout else ""
+            error_stderr = e.stderr.decode("latin-1", errors="replace") if e.stderr else ""
             print(f"{get_relative_timestamp()}   Return Code: {e.returncode}")
             print(f"{get_relative_timestamp()}   Stdout: {error_stdout.strip()}")
             print(f"{get_relative_timestamp()}   Stderr: {error_stderr.strip()}")
-            print(f"{get_relative_timestamp()}   Please ensure 'bcp' is in your system's PATH, you have necessary database permissions, and the database name is correct.")
+            print(
+                f"{get_relative_timestamp()}   Please ensure 'bcp' is in your system's PATH, you have necessary database permissions, and the database name is correct."
+            )
         except Exception as e:
             # Catch-all for other exceptions during DuckDB load
             print(f"{get_relative_timestamp()} ❌ Error processing table {table_sql_full} during DuckDB load.")
             print(f"{get_relative_timestamp()}   Exception Type: {type(e)}")
-            print(f"{get_relative_timestamp()}   Exception Message: {e}") # This is str(e)
-            print(f"{get_relative_timestamp()}   Full Exception Object (repr): {repr(e)}") # This will give more detail
+            print(f"{get_relative_timestamp()}   Exception Message: {e}")  # This is str(e)
+            print(f"{get_relative_timestamp()}   Full Exception Object (repr): {repr(e)}")  # This will give more detail
             print(f"{get_relative_timestamp()}   Suggestion: Inspect the temporary CSV file at: {csv_path}")
-            print(f"{get_relative_timestamp()}   This error indicates a problem during the DuckDB COPY operation. "
-                  f"Check the CSV file's content and ensure the DuckDB schema matches the CSV data types.")
-            continue # Skip to next table if processing current table fails
+            print(
+                f"{get_relative_timestamp()}   This error indicates a problem during the DuckDB COPY operation. "
+                f"Check the CSV file's content and ensure the DuckDB schema matches the CSV data types."
+            )
+            continue  # Skip to next table if processing current table fails
 
     # * Close the DuckDB connection
     con_duckdb.close()
@@ -953,9 +968,133 @@ def load_mssql_to_duckdb( # Renamed function
     return
 
 
+import os
+import duckdb as ddb
+from datetime import datetime
+
+def optimize_duckdb(
+    con_source,
+    file_db: str,
+    list_tables: list[str] = None,
+    delete_parquet_after: bool = True,
+    top_n_rows: int = 0,
+    verbose: bool = True,
+) -> None:
+    """
+    Load tables from a source DuckDB database into a target DuckDB database
+    using Parquet files as an intermediate step. This is a robust and
+    efficient method for data compaction. Datatypes are preserved.
+
+    Args:
+        con_source (object): The connection object to the source DuckDB database.
+        file_db (str): The path to the target DuckDB database file.
+        list_tables (list[str], optional): A list of tables to load from the source.
+                                        If None, all tables in the source database are processed.
+                                        Defaults to None.
+        delete_parquet_after (bool, optional): If True, intermediate Parquet files
+                                        will be deleted. Defaults to True.
+        top_n_rows (int, optional): The number of rows to load from each table.
+                                        Defaults to 0 (all rows).
+        verbose (bool, optional): Whether to print general progress messages.
+                                        Defaults to True.
+
+    Returns:
+        None
+    """
+    # Capture the start time for tracking elapsed time
+    function_start_time = datetime.now()
+
+    def get_relative_timestamp():
+        elapsed_time = datetime.now() - function_start_time
+        total_seconds = int(elapsed_time.total_seconds())
+        hours = (total_seconds % 3600) // 60
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        return f"[{hours:02d}:{minutes:02d}:{seconds:02d}]"
+
+    # Check if target DB already exists
+    if os.path.exists(file_db):
+        print(f"{get_relative_timestamp()} ❌ {file_db} already exists. Exiting.")
+        return
+
+    # Establish connection to the target DuckDB
+    con_duckdb_target = ddb.connect(database=file_db)
+
+    # Create .local directory for temporary Parquet files
+    local_dir = ".local"
+    os.makedirs(local_dir, exist_ok=True)
+    if verbose:
+        print(f"{get_relative_timestamp()} Ensuring temporary Parquet directory exists: {local_dir}")
+
+    # --- Get the list of tables to process ---
+    if list_tables is None:
+        if verbose:
+            print(f"{get_relative_timestamp()} No list_tables provided. Processing all tables in the source database.")
+        try:
+            list_tables_query = "SELECT table_name FROM information_schema.tables WHERE table_schema='main';"
+            list_tables = [row[0] for row in con_source.execute(list_tables_query).fetchall()]
+            if not list_tables:
+                print(f"{get_relative_timestamp()} ❌ No tables found in the source database. Exiting.")
+                return
+        except Exception as e:
+            print(f"{get_relative_timestamp()} ❌ Error retrieving table list from source database: {e}. Exiting.")
+            return
+
+    for table_name in list_tables:
+        parquet_filename = f"{table_name}.parquet"
+        parquet_path = os.path.join(local_dir, parquet_filename)
+
+        if verbose:
+            print(f"{get_relative_timestamp()} Processing table: {table_name}")
+            print(f"{get_relative_timestamp()}   Temporary Parquet file will be: {parquet_path}")
+
+        try:
+            # --- Export data from source DuckDB to a Parquet file ---
+            top_clause = f" LIMIT {top_n_rows}" if top_n_rows > 0 else ""
+            export_query = f"COPY (SELECT * FROM '{table_name}'{top_clause}) TO '{parquet_path}' (FORMAT PARQUET);"
+
+            if verbose:
+                print(f"{get_relative_timestamp()}   Executing export from source DuckDB to Parquet...")
+
+            con_source.execute(export_query)
+
+            if verbose:
+                print(f"{get_relative_timestamp()}   Successfully exported data to '{parquet_path}'.")
+
+            # --- Create table and load data from Parquet into the target DuckDB table in one step ---
+            # This is the key change to fix the error.
+            if verbose:
+                print(f"{get_relative_timestamp()}   Creating and loading table '{table_name}' from Parquet...")
+
+            # Use a more robust CREATE TABLE AS SELECT statement to handle schema creation
+            # This handles any DuckDB version, as it's a standard SQL command.
+            con_duckdb_target.execute(f"CREATE TABLE {table_name} AS SELECT * FROM '{parquet_path}';")
+
+            if verbose:
+                row_count = con_duckdb_target.execute(f"SELECT COUNT(*) FROM {table_name};").fetchone()[0]
+                print(f"{get_relative_timestamp()} Finished loading {table_name}. Total rows: {row_count}")
+
+            if delete_parquet_after:
+                os.remove(parquet_path)
+                if verbose:
+                    print(f"{get_relative_timestamp()}   Deleted temporary Parquet file: {parquet_path}")
+
+        except Exception as e:
+            print(f"{get_relative_timestamp()} ❌ Error processing table {table_name}.")
+            print(f"{get_relative_timestamp()}   Exception Message: {e}")
+            continue
+
+    # Close the target DuckDB connection
+    con_duckdb_target.close()
+    if verbose:
+        print(f"{get_relative_timestamp()} Successfully created DuckDB file: {file_db}")
+
+    return
+
+
 def apply_duckdb_type_overrides(
     file_db: str,
-    duckdb_column_type_overrides: dict, # Renamed argument
+    duckdb_column_type_overrides: dict,  # Renamed argument
     verbose: bool = True,
 ) -> None:
     """
@@ -983,7 +1122,7 @@ def apply_duckdb_type_overrides(
             return
 
         con_duckdb = ddb.connect(database=file_db)
-        
+
         if verbose:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Applying type overrides to tables in '{file_db}'...")
 
@@ -991,56 +1130,71 @@ def apply_duckdb_type_overrides(
         for table_name, column_overrides in duckdb_column_type_overrides.items():
             if verbose:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] Processing table: '{table_name}'")
-            
+
             # Check if table exists
             table_info = con_duckdb.execute(f"PRAGMA table_info('{table_name}');").fetchall()
             if not table_info:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Warning: Table '{table_name}' not found in '{file_db}'. Skipping its column overrides.")
+                print(
+                    f"[{datetime.now().strftime('%H:%M:%S')}] Warning: Table '{table_name}' not found in '{file_db}'. Skipping its column overrides."
+                )
                 continue
 
             for col_name, target_type in column_overrides.items():
                 if verbose:
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}]   Attempting to alter column '{col_name}' in '{table_name}' to '{target_type}'...")
-                
+                    print(
+                        f"[{datetime.now().strftime('%H:%M:%S')}]   Attempting to alter column '{col_name}' in '{table_name}' to '{target_type}'..."
+                    )
+
                 # Get current column type to check if it's already the target type or needs conversion
                 # Using PRAGMA table_info to get column details
                 current_col_details = con_duckdb.execute(f"PRAGMA table_info('{table_name}');").fetchall()
                 current_type_found = None
                 for col_detail in current_col_details:
-                    if col_detail[1] == col_name: # col_detail[1] is the column name
-                        current_type_found = col_detail[2] # col_detail[2] is the column type
+                    if col_detail[1] == col_name:  # col_detail[1] is the column name
+                        current_type_found = col_detail[2]  # col_detail[2] is the column type
                         break
 
                 if current_type_found is None:
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}]   Warning: Column '{col_name}' not found in table '{table_name}'. Skipping override for this column.")
+                    print(
+                        f"[{datetime.now().strftime('%H:%M:%S')}]   Warning: Column '{col_name}' not found in table '{table_name}'. Skipping override for this column."
+                    )
                     continue
 
                 # If current type is already the target type (case-insensitive check)
                 if current_type_found.lower() == target_type.lower():
                     if verbose:
-                        print(f"[{datetime.now().strftime('%H:%M:%S')}]   Column '{col_name}' in '{table_name}' is already '{target_type}'. Skipping.")
+                        print(
+                            f"[{datetime.now().strftime('%H:%M:%S')}]   Column '{col_name}' in '{table_name}' is already '{target_type}'. Skipping."
+                        )
                     continue
 
                 try:
                     # DuckDB's ALTER TABLE syntax for type conversion
                     # Using TRY_CAST to convert, setting invalid values to NULL
                     # Double quotes for table and column names to handle special characters or keywords
-                    alter_sql = f"ALTER TABLE \"{table_name}\" ALTER COLUMN \"{col_name}\" SET DATA TYPE {target_type} USING TRY_CAST(\"{col_name}\" AS {target_type});"
+                    alter_sql = f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET DATA TYPE {target_type} USING TRY_CAST("{col_name}" AS {target_type});'
                     con_duckdb.execute(alter_sql)
                     if verbose:
-                        print(f"[{datetime.now().strftime('%H:%M:%S')}]   Successfully altered column '{col_name}' to '{target_type}' in '{table_name}'.")
+                        print(
+                            f"[{datetime.now().strftime('%H:%M:%S')}]   Successfully altered column '{col_name}' to '{target_type}' in '{table_name}'."
+                        )
                 except ddb.Error as e:
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Error altering column '{col_name}' in '{table_name}' to '{target_type}': {e}")
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}]   This column might contain data incompatible with '{target_type}'. "
-                          f"The values that could not be cast have been set to NULL. Consider manual inspection or casting to VARCHAR if data quality is uncertain.")
+                    print(
+                        f"[{datetime.now().strftime('%H:%M:%S')}] ❌ Error altering column '{col_name}' in '{table_name}' to '{target_type}': {e}"
+                    )
+                    print(
+                        f"[{datetime.now().strftime('%H:%M:%S')}]   This column might contain data incompatible with '{target_type}'. "
+                        f"The values that could not be cast have been set to NULL. Consider manual inspection or casting to VARCHAR if data quality is uncertain."
+                    )
     except Exception as e:
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] ❌ An unexpected error occurred during type override application: {e}")
+        print(
+            f"[{datetime.now().strftime('%H:%M:%S')}] ❌ An unexpected error occurred during type override application: {e}"
+        )
     finally:
         if con_duckdb:
             con_duckdb.close()
             if verbose:
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] DuckDB connection closed.")
-
 
 
 def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
@@ -1070,14 +1224,14 @@ def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
 
         # Create or replace the _meta table from the temporary view
         con_duckdb.execute("CREATE OR REPLACE TABLE _meta AS SELECT * FROM _meta_temp_view")
-        con_duckdb.commit() # Ensure changes are written
+        con_duckdb.commit()  # Ensure changes are written
         print(f"✅ Metadata table '_meta' successfully created/updated in {file_db}")
 
     except ddb.Error as e:
         print(f"❌ Error creating/populating _meta table: {e}")
         raise
     finally:
-        if 'con_duckdb' in locals() and con_duckdb:
+        if "con_duckdb" in locals() and con_duckdb:
             con_duckdb.close()
     return
 
@@ -1088,14 +1242,14 @@ def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
     #         meta_column_names = list(dict_meta.keys())
     #         column_definitions = [f'"{col_name}" VARCHAR' for col_name in meta_column_names]
     #         create_meta_sql = f"CREATE TABLE _meta ({', '.join(column_definitions)});"
-            
+
     #         con_duckdb.execute("DROP TABLE IF EXISTS _meta;") # Drop existing meta if any (shouldn't be in new DB)
     #         con_duckdb.execute(create_meta_sql)
 
     #         # Prepare values for insertion
     #         placeholders = ', '.join(['?' for _ in meta_column_names])
     #         insert_meta_sql = f"INSERT INTO _meta ({', '.join([f'"{c}"' for c in meta_column_names])}) VALUES ({placeholders});"
-            
+
     #         # Convert all metadata values to string for VARCHAR columns
     #         meta_values = [str(v) for v in dict_meta.values()]
     #         con_duckdb.execute(insert_meta_sql, meta_values)
