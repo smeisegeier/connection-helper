@@ -46,5 +46,5 @@ sec = [
 ]
 
 [build-system]
-requires = ["hatchling"] # Use hatchling as the build tool
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.8.7,<0.9.0"]
+build-backend = "uv_build"
