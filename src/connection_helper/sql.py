@@ -371,7 +371,7 @@ def print_meta(path: str | Path) -> None:
             raise ValueError(f"Unsupported file type: {path}")
 
         deli = meta.get("data_delivered_at")
-        trans = meta.get("table_transmitted_at")
+        # trans = meta.get("table_transmitted_at")
         creat = meta.get("table_created_at")
         tag = meta.get("tag")
         doi = meta.get("doi")
@@ -384,8 +384,8 @@ def print_meta(path: str | Path) -> None:
             print(f"{'last kkr data import:': <25}{deli[0][:19]}")
         if creat is not None:
             print(f"{'sql table created:': <25}{creat[0][:19]}")
-        if trans is not None:
-            print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
+        # if trans is not None:
+        #     print(f"{'sql table transmitted:': <25}{trans[0][:19]}")
         if doi is not None:
             print(f"{'doi:': <25}{doi[0]}")
         if url is not None:

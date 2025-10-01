@@ -1,6 +1,6 @@
 [project]
 name = "connection-helper"
-version = "0.13.0"
+version = "0.13.1"
 description = "A collection of helper for sql connections"
 long_description = "file: README.md"
 long_description_content_type = "text/markdown"
@@ -23,6 +23,8 @@ classifiers = [
 ]
 dependencies = [
     "pandas >= 2.0.0",
+    "pandas-plots",
+    "openpyxl",
     "sqlalchemy >= 2.0.28",
     "sqlalchemy-utils >= 0.41.2",
     "python-gnupg >= 0.5.2",
