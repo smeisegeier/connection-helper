@@ -377,7 +377,7 @@ def print_meta(path: str | Path) -> None:
         doi = meta.get("doi")
         url = meta.get("url")
 
-        print(f"{'sqlite db file:': <25}{path.name}")
+        print(f"{'database file:': <25}{path.name}")
         if tag is not None:
             print(f"{'data tag:': <25}{tag[0]}")
         if deli is not None:
