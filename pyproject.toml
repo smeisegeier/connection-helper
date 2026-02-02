@@ -1,6 +1,6 @@
 [project]
 name = "connection-helper"
-version = "0.13.2"
+version = "0.13.3"
 description = "A collection of helper for sql connections"
 long_description = "file: README.md"
 long_description_content_type = "text/markdown"

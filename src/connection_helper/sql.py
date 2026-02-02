@@ -591,7 +591,7 @@ def load_sqlite_to_duckdb(sqlite_path: str | Path, debug: bool = False) -> None:
     finally:
         sqlite_conn.close()
         duckdb_conn.close()
-        return
+    return
 
 
 def load_mssql_to_duckdb(  # Renamed function
@@ -1217,7 +1217,7 @@ def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
 
     try:
         con_duckdb = ddb.connect(database=file_db)
-        df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T
+        df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T.astype("string")
 
         # Register the DataFrame as a virtual table
         con_duckdb.register("_meta_temp_view", df_meta)
