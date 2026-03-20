@@ -1,7 +1,5 @@
 import os
 from os.path import expanduser
-
-
 import sqlite3
 from urllib.parse import urlparse
 import pandas as pd
@@ -601,6 +599,7 @@ def load_mssql_to_duckdb(  # Renamed function
     delete_csv_after: bool = True,
     top_n_rows: int = 0,
     verbose: bool = True,  # Retain verbose for general function progress messages
+    overwrite: bool = False,
 ) -> None:
     """
     Load SQL tables from a source MSSQL database into a DuckDB database using bcp for export.
@@ -633,6 +632,8 @@ def load_mssql_to_duckdb(  # Renamed function
         top_n_rows (int, optional): The number of rows to load from each table. Defaults to 0 (all rows).
                                     This limit is applied directly in the bcp query.
         verbose (bool, optional): Whether to print general progress messages. Defaults to True.
+        overwrite (bool, optional): If True, the target DuckDB file will be overwritten if it already exists.
+                                    Defaults to False.
 
     Returns:
         None
@@ -666,9 +667,10 @@ def load_mssql_to_duckdb(  # Renamed function
         seconds = total_seconds % 60
         return f"[{hours:02d}:{minutes:02d}:{seconds:02d}]"
 
+
     # * Check if db already exists
-    if os.path.exists(file_db):
-        print(f"{get_relative_timestamp()} ❌ {file_db} already exists. Exiting.")
+    if os.path.exists(file_db) and not overwrite:
+        print(f"{get_relative_timestamp()} ❌ {file_db} already exists. Exiting. Set 'overwrite=True' if desired.")
         return
 
     # * Establish connection to DuckDB
@@ -968,9 +970,6 @@ def load_mssql_to_duckdb(  # Renamed function
     return
 
 
-import os
-import duckdb as ddb
-from datetime import datetime
 
 def optimize_duckdb(
     con_source,
