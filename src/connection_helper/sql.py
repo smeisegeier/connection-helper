@@ -1196,13 +1196,34 @@ def apply_duckdb_type_overrides(
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] DuckDB connection closed.")
 
 
-def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
+
+def add_duckdb_meta_table(
+    file_db: str, dict_meta: dict | None = None, con: ddb.DuckDBPyConnection | None = None
+) -> None:
     """
-    Creates a metadata table named "_meta" in a DuckDB database from a given dictionary.
+    Creates a metadata table named "_meta" in a DuckDB database from a **predefined** dictionary.  
+    The dictionary is written as a single table row, with each key becoming a column.  
+    ⚠️ If no read/write connection is available, close connection before calling this function.
 
     Args:
-        file_db (str): The path to the existing DuckDB database file.
+        file_db (str): The path to the existing DuckDB database file. Ignored if con is given.
         dict_meta (dict | None): A dictionary containing the metadata to be added. If None, no table is created.
+        con (duckdb connection, optional): An existing DuckDB connection to use. If given, file_db is ignored
+            and the connection is not closed by this function. __Must be a read/write connection, not read-only.__
+            Defaults to None.
+
+    Example:
+        Use this predefined structure for dict_meta:
+        ```python
+        dict_meta = {
+            "data_delivered_at": when data were delivered by sender (latest),
+            "table_created_at": creation time of table,
+            "table_transmitted_at": time of transmission,
+            "tag": version or tag,
+            "doi": registered doi code
+        }
+        ```
+        ℹ️ always set the full dict, set unneeded values to None
 
     Returns:
         None
@@ -1214,23 +1235,26 @@ def add_duckdb_meta_table(file_db: str, dict_meta: dict | None = None) -> None:
         print("❌ No metadata provided. Skipping meta table creation.")
         return
 
+    con_duckdb = con if con is not None else ddb.connect(database=file_db)
     try:
-        con_duckdb = ddb.connect(database=file_db)
-        df_meta = pd.DataFrame.from_dict(dict_meta, orient="index").T.astype("string")
+        # * dict is written as a single table row: keys become columns, values become the row
+        df_meta = pd.DataFrame([dict_meta]).astype("string")
 
         # Register the DataFrame as a virtual table
         con_duckdb.register("_meta_temp_view", df_meta)
 
         # Create or replace the _meta table from the temporary view
         con_duckdb.execute("CREATE OR REPLACE TABLE _meta AS SELECT * FROM _meta_temp_view")
+        con_duckdb.unregister("_meta_temp_view")
         con_duckdb.commit()  # Ensure changes are written
-        print(f"✅ Metadata table '_meta' successfully created/updated in {file_db}")
+        target = file_db if con is None else "given connection"
+        print(f"✅ Metadata table '_meta' successfully created/updated in {target}")
 
     except ddb.Error as e:
         print(f"❌ Error creating/populating _meta table: {e}")
         raise
     finally:
-        if "con_duckdb" in locals() and con_duckdb:
+        if con is None and con_duckdb:
             con_duckdb.close()
     return
 
